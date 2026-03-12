@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "engine-cli"
+version = "0.1.0"
+description = "System Environment Manager Agent"
+readme = "README.md"
+requires-python = ">=3.13.7"
+dependencies = [
+    "textual>=8.1.1",
+]
+
+[project.scripts]
+engine = "engine_cli.app:run"
+engine-cli = "engine_cli.app:run"
+
+[tool.setuptools.packages.find]
+where = ["src"]
