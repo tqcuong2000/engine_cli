@@ -13,8 +13,11 @@ dependencies = [
 ]
 
 [project.scripts]
-engine = "engine_cli.app:run"
-engine-cli = "engine_cli.app:run"
+engine = "engine_cli.interfaces.tui.app:run"
+engine-cli = "engine_cli.interfaces.tui.app:run"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+engine_cli = ["resources/*.tcss"]
