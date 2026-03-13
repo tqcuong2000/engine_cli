@@ -1,0 +1,1 @@
+"""Minecraft-specific infrastructure adapters."""
