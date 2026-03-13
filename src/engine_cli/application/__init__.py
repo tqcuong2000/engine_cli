@@ -1,7 +1,9 @@
 from engine_cli.application.execution import ExecutionResult, ExecutionService
 from engine_cli.application.lifecycle import (
     AgentRuntimeLifecycleService,
+    ServerInstanceLifecycleError,
     ServerInstanceLifecycleService,
+    ServerInstanceValidationError,
 )
 from engine_cli.application.session import (
     InvalidModeSwitchError,
@@ -14,7 +16,9 @@ __all__ = [
     "ExecutionResult",
     "ExecutionService",
     "InvalidModeSwitchError",
+    "ServerInstanceLifecycleError",
     "ServerInstanceLifecycleService",
+    "ServerInstanceValidationError",
     "SessionContext",
     "SessionContextError",
 ]
