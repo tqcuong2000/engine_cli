@@ -4,6 +4,8 @@ from textual.widgets import Button
 
 from engine_cli.application import (
     InvalidModeSwitchError,
+    ServerCommandError,
+    ServerCommandService,
     ServerInstanceManager,
     ServerInstanceNotFoundError,
     ServerInstanceLifecycleService,
@@ -15,6 +17,7 @@ from engine_cli.interfaces.tui.layout.body import Body
 from engine_cli.interfaces.tui.layout.footer import Footer
 from engine_cli.interfaces.tui.layout.header import Header
 from engine_cli.interfaces.tui.layout.panel import Panel
+from engine_cli.interfaces.tui.main.user_inputs import UserInputs
 from engine_cli.interfaces.tui.modals import AddServerModalScreen, ConfirmModalScreen
 from engine_cli.interfaces.tui.theme.engine_dark import ENGINE_THEME
 
@@ -39,6 +42,10 @@ class EngineCli(App):
         self.server_manager = ServerInstanceManager()
         self.lifecycle_service = ServerInstanceLifecycleService(
             terminal_store=self.terminal_store
+        )
+        self.server_command_service = ServerCommandService(
+            lifecycle_service=self.lifecycle_service,
+            terminal_store=self.terminal_store,
         )
 
     def on_mount(self) -> None:
@@ -104,6 +111,21 @@ class EngineCli(App):
             self._handle_server_select(button_id.removeprefix("server-select-"))
         elif button_id.startswith("server-remove-"):
             self._open_remove_server_modal(button_id.removeprefix("server-remove-"))
+
+    def on_user_inputs_submitted(self, event: UserInputs.Submitted) -> None:
+        """Route server-mode footer input to the server command pipeline."""
+        if self.session_context.mode is not OperatingMode.SERVER:
+            return
+        server = self._get_active_server()
+        if server is None:
+            self.notify("No server selected", severity="warning")
+            return
+        try:
+            self.server_command_service.send(server, event.value)
+        except ServerCommandError as exc:
+            self.notify(str(exc), severity="error")
+            return
+        event.input_widget.clear()
 
     def _handle_start_server(self) -> None:
         """Start the selected managed server."""

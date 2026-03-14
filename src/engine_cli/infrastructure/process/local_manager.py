@@ -2,6 +2,7 @@ from pathlib import Path
 import shlex
 import subprocess
 
+from engine_cli.infrastructure.process.errors import ProcessCommandError
 from engine_cli.infrastructure.process.managed_process import ManagedProcessHandle
 
 
@@ -38,6 +39,19 @@ class LocalProcessManager:
             handle.process.wait(timeout=timeout)
         finally:
             self._close_streams(handle)
+
+    def send_command(self, handle: ManagedProcessHandle, command: str) -> None:
+        """Write one command to the managed process stdin and flush immediately."""
+        normalized_command = command.strip()
+        if not normalized_command:
+            raise ProcessCommandError("Server command is required.")
+        stdin = handle.process.stdin
+        if stdin is None or stdin.closed:
+            raise ProcessCommandError("Managed process stdin is not available.")
+        if not self.is_running(handle):
+            raise ProcessCommandError("Managed process is not running.")
+        stdin.write(f"{normalized_command}\n")
+        stdin.flush()
 
     def _close_streams(self, handle: ManagedProcessHandle) -> None:
         """Ensure all process standard streams are closed."""

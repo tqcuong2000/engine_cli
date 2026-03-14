@@ -17,3 +17,22 @@ class TestLocalProcessManager(unittest.TestCase):
             manager.stop(handle)
 
             self.assertFalse(manager.is_running(handle))
+
+    def test_send_command_writes_to_process_stdin(self):
+        manager = LocalProcessManager()
+        command = (
+            f'"{sys.executable}" -c '
+            '"import sys; '
+            "print(sys.stdin.readline().strip(), flush=True)"
+            '"'
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            handle = manager.start(command, temp_dir)
+            try:
+                manager.send_command(handle, "list")
+                output = handle.process.stdout.readline().strip() if handle.process.stdout else ""
+            finally:
+                manager.stop(handle)
+
+            self.assertEqual(output, "list")

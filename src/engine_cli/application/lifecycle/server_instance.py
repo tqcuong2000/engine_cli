@@ -122,6 +122,10 @@ class ServerInstanceLifecycleService:
             server.lifecycle_state = ServerInstanceLifecycleState.FAILED
         return task
 
+    def get_handle(self, server_instance_id: str) -> ManagedProcessHandle | None:
+        """Return the active runtime handle for a managed server, if one exists."""
+        return self._handles.get(server_instance_id)
+
     def _wait_for_state(
         self,
         handle: ManagedProcessHandle,

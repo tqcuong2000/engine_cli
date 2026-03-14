@@ -16,6 +16,10 @@ from engine_cli.application.server_instances import (
     ServerInstanceManagerError,
     ServerInstanceNotFoundError,
 )
+from engine_cli.application.server_commands import (
+    ServerCommandError,
+    ServerCommandService,
+)
 from engine_cli.application.terminal import (
     ServerTerminalBuffer,
     ServerTerminalStore,
@@ -37,6 +41,8 @@ __all__ = [
     "ServerInstanceLifecycleError",
     "ServerInstanceLifecycleService",
     "ServerInstanceValidationError",
+    "ServerCommandError",
+    "ServerCommandService",
     "SessionContext",
     "SessionContextError",
     "TerminalLogLine",
