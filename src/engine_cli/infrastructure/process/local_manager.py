@@ -16,7 +16,7 @@ class LocalProcessManager:
             cwd=working_directory,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             text=True,
         )
         return ManagedProcessHandle(process=process, command=command)

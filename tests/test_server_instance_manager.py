@@ -1,0 +1,66 @@
+import tempfile
+from pathlib import Path
+import unittest
+
+from engine_cli.application import (
+    ServerInstanceManager,
+    ServerInstanceNotFoundError,
+    SessionContext,
+)
+from engine_cli.domain import OperatingMode
+
+
+class TestServerInstanceManager(unittest.TestCase):
+    def _write_server_files(self, root: Path) -> None:
+        (root / "logs").mkdir()
+        (root / "versions" / "1.21.11").mkdir(parents=True)
+        (root / "server.properties").write_text("motd=Lobby\n", encoding="utf-8")
+        (root / "logs" / "latest.log").write_text(
+            "[22:37:58] [main/INFO]: Loading Minecraft 1.21.11 with Fabric Loader 0.18.4\n",
+            encoding="utf-8",
+        )
+        (root / "versions" / "1.21.11" / "server-1.21.11.jar").write_text(
+            "",
+            encoding="utf-8",
+        )
+
+    def test_import_server_adds_it_to_session_catalog(self):
+        manager = ServerInstanceManager()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            self._write_server_files(root)
+
+            server = manager.import_server(
+                name="Lobby",
+                location=str(root),
+                command="java -jar fabric.jar --nogui",
+            )
+
+            self.assertEqual(server.name, "Lobby")
+            self.assertEqual(len(manager.list_servers()), 1)
+            self.assertIs(manager.get_server(server.server_instance_id), server)
+
+    def test_remove_active_server_clears_session_and_falls_back_to_base(self):
+        manager = ServerInstanceManager()
+        session = SessionContext()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            self._write_server_files(root)
+            server = manager.import_server(
+                name="Lobby",
+                location=str(root),
+                command="java -jar fabric.jar --nogui",
+            )
+
+            session.select_server(server.server_instance_id)
+            session.switch_mode(OperatingMode.SERVER)
+            manager.remove_server(server.server_instance_id, session_context=session)
+
+            self.assertIsNone(session.active_server_instance_id)
+            self.assertEqual(session.mode, OperatingMode.BASE)
+
+    def test_select_missing_server_raises(self):
+        manager = ServerInstanceManager()
+
+        with self.assertRaises(ServerInstanceNotFoundError):
+            manager.select_server("missing", SessionContext())

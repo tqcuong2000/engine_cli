@@ -5,6 +5,7 @@ from engine_cli.application.lifecycle.errors import (
     ServerInstanceLifecycleError,
     ServerInstanceValidationError,
 )
+from engine_cli.application.terminal import ServerTerminalStore
 from engine_cli.domain import (
     ServerInstance,
     ServerInstanceLifecycleState,
@@ -13,6 +14,7 @@ from engine_cli.domain import (
     TaskTargetType,
 )
 from engine_cli.infrastructure.process.local_manager import LocalProcessManager
+from engine_cli.infrastructure.process.log_streamer import ProcessLogStreamer
 from engine_cli.infrastructure.process.managed_process import ManagedProcessHandle
 
 
@@ -23,12 +25,14 @@ class ServerInstanceLifecycleService:
         self,
         execution_service: ExecutionService | None = None,
         process_manager: LocalProcessManager | None = None,
+        terminal_store: ServerTerminalStore | None = None,
         observation_timeout: float = 1.0,
         poll_interval: float = 0.05,
     ) -> None:
         """Initialize the service with execution and process management dependencies."""
         self.execution_service = execution_service or ExecutionService()
         self.process_manager = process_manager or LocalProcessManager()
+        self.terminal_store = terminal_store or ServerTerminalStore()
         self.observation_timeout = observation_timeout
         self.poll_interval = poll_interval
         self._handles: dict[str, ManagedProcessHandle] = {}
@@ -65,9 +69,13 @@ class ServerInstanceLifecycleService:
         server.lifecycle_state = ServerInstanceLifecycleState.STARTING
 
         def executor() -> None:
+            terminal_buffer = self.terminal_store.get_buffer(server.server_instance_id)
+            terminal_buffer.clear()
             handle = self.process_manager.start(server.command, server.location)
+            handle.log_streamer = self._create_log_streamer(handle, terminal_buffer)
+            handle.log_streamer.start()
             if not self._wait_for_state(handle, desired_running=True):
-                self.process_manager.stop(handle)
+                self._shutdown_handle(handle)
                 raise ServerInstanceLifecycleError(
                     "Server process did not remain running long enough to confirm startup."
                 )
@@ -100,7 +108,7 @@ class ServerInstanceLifecycleService:
         server.lifecycle_state = ServerInstanceLifecycleState.STOPPING
 
         def executor() -> None:
-            self.process_manager.stop(handle)
+            self._shutdown_handle(handle)
             if not self._wait_for_state(handle, desired_running=False):
                 raise ServerInstanceLifecycleError(
                     "Server process did not stop within the observation window."
@@ -134,3 +142,21 @@ class ServerInstanceLifecycleService:
                 return True
             sleep(self.poll_interval)
         return not self.process_manager.is_running(handle)
+
+    def _create_log_streamer(
+        self,
+        handle: ManagedProcessHandle,
+        terminal_buffer,
+    ) -> ProcessLogStreamer:
+        """Create a log streamer for the managed process output."""
+        if handle.process.stdout is None:
+            raise ServerInstanceLifecycleError("Managed process stdout is not available.")
+        return ProcessLogStreamer(handle.process.stdout, terminal_buffer)
+
+    def _shutdown_handle(self, handle: ManagedProcessHandle) -> None:
+        """Stop the log reader and process using a consistent shutdown sequence."""
+        if handle.log_streamer is not None:
+            handle.log_streamer.stop()
+        self.process_manager.stop(handle)
+        if handle.log_streamer is not None:
+            handle.log_streamer.join(timeout=self.observation_timeout)

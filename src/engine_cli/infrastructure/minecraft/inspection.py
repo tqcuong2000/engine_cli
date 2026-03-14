@@ -38,6 +38,19 @@ class MinecraftServerInspector:
             server_distribution=server_distribution,
         )
 
+    def suggest_start_command(self, location: str) -> str | None:
+        """Return a default Java launch command when the server root and jar are present."""
+        root = Path(location)
+        if not root.is_dir():
+            return None
+        properties = root / "server.properties"
+        if not properties.is_file():
+            return None
+        jar_path = self._find_launch_jar(root)
+        if jar_path is None:
+            return None
+        return f"java -Xms2G -Xmx2G -Xmn512m -jar {jar_path.name} --nogui"
+
     def import_server(
         self,
         server_instance_id: str,
@@ -101,3 +114,23 @@ class MinecraftServerInspector:
         if "forge" in source:
             return "forge"
         return "vanilla"
+
+    def _find_launch_jar(self, root: Path) -> Path | None:
+        """Return the most likely root-level launch jar for a local server."""
+        candidates = sorted(root.glob("*.jar"))
+        if not candidates:
+            return None
+
+        def sort_key(path: Path) -> tuple[int, str]:
+            name = path.name.lower()
+            if name == "fabric.jar":
+                return (0, name)
+            if "paper" in name:
+                return (1, name)
+            if "forge" in name:
+                return (2, name)
+            if "server" in name:
+                return (3, name)
+            return (4, name)
+
+        return min(candidates, key=sort_key)

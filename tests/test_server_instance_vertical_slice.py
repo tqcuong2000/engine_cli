@@ -4,6 +4,7 @@ import unittest
 
 from engine_cli.application import (
     ExecutionService,
+    ServerTerminalStore,
     ServerInstanceLifecycleError,
     ServerInstanceLifecycleService,
 )
@@ -15,9 +16,11 @@ class TestServerInstanceVerticalSlice(unittest.TestCase):
     def setUp(self):
         self.execution_service = ExecutionService()
         self.process_manager = LocalProcessManager()
+        self.terminal_store = ServerTerminalStore()
         self.lifecycle_service = ServerInstanceLifecycleService(
             execution_service=self.execution_service,
             process_manager=self.process_manager,
+            terminal_store=self.terminal_store,
             observation_timeout=0.5,
             poll_interval=0.05,
         )
@@ -34,17 +37,24 @@ class TestServerInstanceVerticalSlice(unittest.TestCase):
         )
 
     def test_start_configured_server_transitions_to_running(self):
-        command = f'"{sys.executable}" -c "import time; time.sleep(30)"'
+        command = (
+            f'"{sys.executable}" -u -c "import time; print(\'server booted\'); time.sleep(30)"'
+        )
         with tempfile.TemporaryDirectory() as temp_dir:
             server = self._build_server(temp_dir, command)
+            try:
+                task = self.lifecycle_service.start(server)
 
-            task = self.lifecycle_service.start(server)
-
-            self.assertEqual(server.lifecycle_state, ServerInstanceLifecycleState.RUNNING)
-            self.assertEqual(task.task_kind, "server_instance.start")
-            self.assertEqual(task.status, TaskStatus.COMPLETED)
-
-            self.lifecycle_service.stop(server)
+                self.assertEqual(server.lifecycle_state, ServerInstanceLifecycleState.RUNNING)
+                self.assertEqual(task.task_kind, "server_instance.start")
+                self.assertEqual(task.status, TaskStatus.COMPLETED)
+                self.assertEqual(
+                    [line.raw for line in self.terminal_store.get_buffer("srv-1").snapshot()],
+                    ["server booted"],
+                )
+            finally:
+                if server.lifecycle_state is ServerInstanceLifecycleState.RUNNING:
+                    self.lifecycle_service.stop(server)
 
     def test_stop_running_server_transitions_to_stopped(self):
         command = f'"{sys.executable}" -c "import time; time.sleep(30)"'

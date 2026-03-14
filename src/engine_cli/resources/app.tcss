@@ -23,20 +23,32 @@
 
 Header {
     width: 100%;
-    height: auto;
+    height: 3;
     border: solid $primary;
 }
 
 Body {
     width: 100%;
     height: 1fr;
-    background: $surface;
+    background: transparent;
 }
 
-Body > .workspace {
+Body  ConversationBody,
+Body  TerminalBody {
+    width: 100%;
+    height: 100%;
+    scrollbar-size: 0 0;
+}
+
+Body .workspace {
     width: 100%;
     height: 100%;
     padding: 1 2;
+}
+
+TerminalBody.terminal-workspace {
+    width: 100%;
+    height: 100%;
 }
 
 Body .workspace-title {
@@ -56,6 +68,11 @@ Body .conversation-thread,
 Body .terminal-output {
     width: 100%;
     height: 1fr;
+}
+
+Body .terminal-log {
+    width: 100%;
+    height: auto;
 }
 
 Body .message-role {
@@ -90,10 +107,51 @@ Panel {
     border: solid $primary;
 }
 
-Panel > .panel-view {
+Panel .panel-view {
     width: 100%;
     height: 1fr;
-    padding: 1 2;
+    padding: 1;
+}
+
+Panel .server-entry {
+    width: 1fr;
+    height: auto;
+    padding: 0 1;
+    border: solid $primary;
+    color: $text;
+    text-align: center;
+    text-style: bold;
+    layout: grid;
+    grid-size: 2 1;
+    grid-columns: 1fr auto;
+    margin-top: 1;
+}
+
+Panel .server-online-marker {
+    width: auto;
+    color: $success;
+}
+
+Panel .server-entry:hover {
+    border: solid $secondary;
+}
+
+Panel .server-entry.is-active {
+    border: solid $secondary;
+}
+
+Panel .server-label {
+    width: 1fr;
+    background: transparent;
+    border: none;
+    color: $text;
+    text-align: left;
+    text-style: bold;
+}
+
+Panel .server-label:hover {
+    color: $accent;
+    background: transparent;
 }
 
 Panel .panel-section {
@@ -107,18 +165,50 @@ Panel .panel-label {
     text-style: bold;
 }
 
-Panel .panel-value,
-Panel .panel-action {
-    width: 100%;
-    color: $text;
-    background: $panel;
-    padding: 0 1;
-    margin-top: 1;
-}
-
 Panel .panel-chip {
     width: auto;
     background: $secondary;
+}
+
+Panel .server-list {
+    width: 100%;
+    height: 1fr;
+    margin-top: 1;
+}
+
+Panel .panel-bottom {
+    width: 100%;
+    height: auto;
+    content-align: center middle;
+}
+
+Panel .action-entry {
+    width: 1fr;
+    height: auto;
+    padding: 0 1;
+    color: $text;
+    text-align: center;
+    text-style: bold;
+    layout: grid;
+    grid-size: 2 1;
+    grid-columns: 1fr 1fr;
+    grid-gutter: 1;
+}
+
+Panel .action-label {
+    width: 1fr;
+    height: auto;
+    max-height: 3;
+    padding: 0 1;
+    border: solid $primary;
+    color: $text;
+    text-align: center;
+    text-style: bold;
+}
+
+Panel .action-label:hover {
+    border: solid $accent;
+    color: $accent;
 }
 
 Footer {
@@ -204,4 +294,113 @@ Header .context {
     text-align: right;
 }
 
+.modal-backdrop {
+    width: 100%;
+    height: 100%;
+    align: center middle;
+    background: $background-darken-2 60%;
+}
 
+.modal-frame {
+    width: 70;
+    max-width: 90%;
+    height: auto;
+    border: solid $primary;
+    background: $surface;
+    padding: 1 2;
+}
+
+.modal-title-container {
+    width: 100%;
+    height: auto;
+    layout: grid;
+    grid-size: 2 1;
+    grid-columns: 1fr auto;
+    margin-bottom: 1;
+}
+
+.modal-title {
+    width: 100%;
+    text-style: bold;
+    color: $accent;
+}
+
+.modal-close-btn {
+    width: auto;
+    height: 1;
+    padding: 0 1;
+    color: $text-muted 40%;
+    text-style: bold;
+}
+
+.modal-close-btn:hover {
+    color: $accent;
+}
+
+.modal-close-btn:focus {
+    color: $accent;
+    text-style: bold;
+}
+
+.modal-body {
+    width: 100%;
+    height: auto;
+}
+
+.modal-preview {
+    width: 100%;
+    min-height: 3;
+    margin-top: 1;
+    background: $panel;
+    padding: 0 1;
+    color: $foreground;
+}
+
+.modal-actions {
+    width: 100%;
+    height: auto;
+    layout: grid;
+    grid-size: 2 1;
+    grid-columns: 1fr 1fr;
+    grid-gutter: 3;
+    margin-top: 1;
+}
+
+.modal-action {
+    height: 3;
+    padding: 0 1;
+    border: solid $primary;
+    color: $text;
+    text-align: center;
+    text-style: bold;
+}
+
+.modal-action:hover {
+    border: solid $accent;
+    color: $accent;
+}
+
+.modal-action:focus {
+    border: solid $accent;
+    color: $accent;
+}
+
+.modal-action.is-disabled {
+    border: solid $primary-darken-1;
+    color: $text-muted 40%;
+}
+
+.modal-action.is-disabled:hover,
+.modal-action.is-disabled:focus {
+    border: solid $primary-darken-1;
+    color: $text-muted 40%;
+}
+
+.modal-message {
+    width: 100%;
+    color: $text;
+}
+
+.text-center {
+    text-align: center;
+}

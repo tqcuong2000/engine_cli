@@ -1,13 +1,16 @@
 from textual.app import ComposeResult
-from textual.containers import Container
 from textual.widget import Widget
+from textual.widgets import Static
+
+from engine_cli.interfaces.tui.panel.context import PanelViewContext
 
 
 class ActionsPanelView(Widget):
-    """Empty actions panel placeholder."""
+    """Actions panel providing contextual operations."""
 
-    def __init__(self, _session_context: object) -> None:
+    def __init__(self, panel_context: PanelViewContext) -> None:
         super().__init__()
+        self.panel_context = panel_context
 
     def compose(self) -> ComposeResult:
-        yield Container(classes="panel-view")
+        yield Static("Actions", classes="panel-label")

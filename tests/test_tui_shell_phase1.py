@@ -1,6 +1,6 @@
 import unittest
 
-from engine_cli.application import SessionContext
+from engine_cli.application import ServerTerminalStore, SessionContext
 from engine_cli.domain import OperatingMode
 from engine_cli.interfaces.tui.app import EngineCli
 from engine_cli.interfaces.tui.body.conversation import ConversationBody
@@ -20,7 +20,7 @@ class TestTuiShellPhase1(unittest.TestCase):
 
     def test_body_renders_conversation_in_base_mode(self):
         session = SessionContext()
-        body = Body(session)
+        body = Body(session, ServerTerminalStore())
         child = next(iter(body.compose()))
         self.assertIsInstance(child, ConversationBody)
 
@@ -28,7 +28,7 @@ class TestTuiShellPhase1(unittest.TestCase):
         session = SessionContext()
         session.select_server("srv-1")
         session.switch_mode(OperatingMode.SERVER)
-        body = Body(session)
+        body = Body(session, ServerTerminalStore())
         child = next(iter(body.compose()))
         self.assertIsInstance(child, TerminalBody)
 
@@ -36,7 +36,7 @@ class TestTuiShellPhase1(unittest.TestCase):
         session = SessionContext()
         session.select_server("srv-1")
         session.switch_mode(OperatingMode.DATAPACK)
-        body = Body(session)
+        body = Body(session, ServerTerminalStore())
         child = next(iter(body.compose()))
         self.assertIsInstance(child, ConversationBody)
 

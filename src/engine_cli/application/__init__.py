@@ -10,15 +10,35 @@ from engine_cli.application.session import (
     SessionContext,
     SessionContextError,
 )
+from engine_cli.application.server_instances import (
+    InMemoryServerCatalog,
+    ServerInstanceManager,
+    ServerInstanceManagerError,
+    ServerInstanceNotFoundError,
+)
+from engine_cli.application.terminal import (
+    ServerTerminalBuffer,
+    ServerTerminalStore,
+    TerminalLogLine,
+    parse_terminal_log_line,
+)
 
 __all__ = [
     "AgentRuntimeLifecycleService",
     "ExecutionResult",
     "ExecutionService",
+    "InMemoryServerCatalog",
     "InvalidModeSwitchError",
+    "ServerInstanceManager",
+    "ServerInstanceManagerError",
+    "ServerInstanceNotFoundError",
+    "ServerTerminalBuffer",
+    "ServerTerminalStore",
     "ServerInstanceLifecycleError",
     "ServerInstanceLifecycleService",
     "ServerInstanceValidationError",
     "SessionContext",
     "SessionContextError",
+    "TerminalLogLine",
+    "parse_terminal_log_line",
 ]
