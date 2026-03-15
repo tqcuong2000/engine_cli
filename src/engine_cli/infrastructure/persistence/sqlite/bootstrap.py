@@ -14,6 +14,23 @@ CREATE TABLE IF NOT EXISTS server_instances (
     lifecycle_state TEXT NOT NULL,
     attached_agents_json TEXT NOT NULL DEFAULT '[]'
 );
+
+CREATE TABLE IF NOT EXISTS task_runs (
+    task_run_id TEXT PRIMARY KEY,
+    task_kind TEXT NOT NULL,
+    target_type TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    started_at TEXT NULL,
+    finished_at TEXT NULL,
+    error_summary TEXT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_runs_target
+    ON task_runs(target_type, target_id);
+
+CREATE INDEX IF NOT EXISTS idx_task_runs_status
+    ON task_runs(status);
 """
 
 

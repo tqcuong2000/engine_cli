@@ -1,5 +1,6 @@
 import sys
 import tempfile
+from pathlib import Path
 import unittest
 
 from engine_cli.application import (
@@ -10,11 +11,14 @@ from engine_cli.application import (
 )
 from engine_cli.domain import ServerInstance, ServerInstanceLifecycleState, TaskStatus
 from engine_cli.infrastructure.process import LocalProcessManager
+from engine_cli.infrastructure.persistence.sqlite import SqliteTaskRunRepository
 
 
 class TestServerInstanceVerticalSlice(unittest.TestCase):
     def setUp(self):
-        self.execution_service = ExecutionService()
+        self._temp_dir = tempfile.TemporaryDirectory()
+        self.task_repository = SqliteTaskRunRepository(Path(self._temp_dir.name) / "engine.db")
+        self.execution_service = ExecutionService(task_repository=self.task_repository)
         self.process_manager = LocalProcessManager()
         self.terminal_store = ServerTerminalStore()
         self.lifecycle_service = ServerInstanceLifecycleService(
@@ -24,6 +28,9 @@ class TestServerInstanceVerticalSlice(unittest.TestCase):
             observation_timeout=0.5,
             poll_interval=0.05,
         )
+
+    def tearDown(self):
+        self._temp_dir.cleanup()
 
     def _build_server(self, temp_dir: str, command: str) -> ServerInstance:
         return ServerInstance(
@@ -48,6 +55,13 @@ class TestServerInstanceVerticalSlice(unittest.TestCase):
                 self.assertEqual(server.lifecycle_state, ServerInstanceLifecycleState.RUNNING)
                 self.assertEqual(task.task_kind, "server_instance.start")
                 self.assertEqual(task.status, TaskStatus.COMPLETED)
+                persisted_tasks = self.execution_service.list_tasks_for_target(
+                    task.target_type,
+                    task.target_id,
+                )
+                self.assertEqual(len(persisted_tasks), 1)
+                self.assertEqual(persisted_tasks[0].task_run_id, task.task_run_id)
+                self.assertEqual(persisted_tasks[0].status, TaskStatus.COMPLETED)
                 self.assertEqual(
                     [line.raw for line in self.terminal_store.get_buffer("srv-1").snapshot()],
                     ["server booted"],
@@ -67,6 +81,18 @@ class TestServerInstanceVerticalSlice(unittest.TestCase):
             self.assertEqual(server.lifecycle_state, ServerInstanceLifecycleState.STOPPED)
             self.assertEqual(task.task_kind, "server_instance.stop")
             self.assertEqual(task.status, TaskStatus.COMPLETED)
+            persisted_tasks = self.execution_service.list_tasks_for_target(
+                task.target_type,
+                task.target_id,
+            )
+            self.assertEqual(
+                [persisted_task.task_kind for persisted_task in persisted_tasks],
+                ["server_instance.start", "server_instance.stop"],
+            )
+            self.assertEqual(
+                [persisted_task.status for persisted_task in persisted_tasks],
+                [TaskStatus.COMPLETED, TaskStatus.COMPLETED],
+            )
 
     def test_start_failure_moves_server_to_failed(self):
         command = f'"{sys.executable}" -c "import sys; sys.exit(1)"'
@@ -77,6 +103,12 @@ class TestServerInstanceVerticalSlice(unittest.TestCase):
 
             self.assertEqual(server.lifecycle_state, ServerInstanceLifecycleState.FAILED)
             self.assertEqual(task.status, TaskStatus.FAILED)
+            persisted_tasks = self.execution_service.list_tasks_for_target(
+                task.target_type,
+                task.target_id,
+            )
+            self.assertEqual(len(persisted_tasks), 1)
+            self.assertEqual(persisted_tasks[0].status, TaskStatus.FAILED)
 
     def test_invalid_start_and_stop_requests_are_rejected(self):
         command = f'"{sys.executable}" -c "import time; time.sleep(30)"'

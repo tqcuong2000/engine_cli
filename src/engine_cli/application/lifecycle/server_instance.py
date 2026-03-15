@@ -61,11 +61,6 @@ class ServerInstanceLifecycleService:
                 f"Cannot start server from state {server.lifecycle_state.value!r}."
             )
 
-        task = self.execution_service.create_task(
-            task_kind="server_instance.start",
-            target_type=TaskTargetType.SERVER_INSTANCE,
-            target_id=server.server_instance_id,
-        )
         server.lifecycle_state = ServerInstanceLifecycleState.STARTING
 
         def executor() -> None:
@@ -81,11 +76,19 @@ class ServerInstanceLifecycleService:
                 )
             self._handles[server.server_instance_id] = handle
 
-        result = self.execution_service.execute_task(task, executor)
+        result = self.execution_service.run_task(
+            task_kind="server_instance.start",
+            target_type=TaskTargetType.SERVER_INSTANCE,
+            target_id=server.server_instance_id,
+            executor=executor,
+        )
         if result.final_status is TaskStatus.COMPLETED:
             server.lifecycle_state = ServerInstanceLifecycleState.RUNNING
         else:
             server.lifecycle_state = ServerInstanceLifecycleState.FAILED
+        task = self.execution_service.get_task(result.task_run_id)
+        if task is None:
+            raise ServerInstanceLifecycleError("Start task record was not persisted.")
         return task
 
     def stop(self, server: ServerInstance) -> TaskRun:
@@ -100,11 +103,6 @@ class ServerInstanceLifecycleService:
                 "Cannot stop server without an active process handle."
             )
 
-        task = self.execution_service.create_task(
-            task_kind="server_instance.stop",
-            target_type=TaskTargetType.SERVER_INSTANCE,
-            target_id=server.server_instance_id,
-        )
         server.lifecycle_state = ServerInstanceLifecycleState.STOPPING
 
         def executor() -> None:
@@ -115,11 +113,19 @@ class ServerInstanceLifecycleService:
                 )
             self._handles.pop(server.server_instance_id, None)
 
-        result = self.execution_service.execute_task(task, executor)
+        result = self.execution_service.run_task(
+            task_kind="server_instance.stop",
+            target_type=TaskTargetType.SERVER_INSTANCE,
+            target_id=server.server_instance_id,
+            executor=executor,
+        )
         if result.final_status is TaskStatus.COMPLETED:
             server.lifecycle_state = ServerInstanceLifecycleState.STOPPED
         else:
             server.lifecycle_state = ServerInstanceLifecycleState.FAILED
+        task = self.execution_service.get_task(result.task_run_id)
+        if task is None:
+            raise ServerInstanceLifecycleError("Stop task record was not persisted.")
         return task
 
     def get_handle(self, server_instance_id: str) -> ManagedProcessHandle | None:

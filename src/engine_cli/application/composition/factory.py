@@ -4,6 +4,7 @@ from engine_cli.application.lifecycle import (
     ServerInstanceLifecycleService,
     ServerRuntimeStateResolver,
 )
+from engine_cli.application.execution import ExecutionService
 from engine_cli.application.server_commands import ServerCommandService
 from engine_cli.application.server_instances import ServerInstanceManager
 from engine_cli.application.session import (
@@ -13,6 +14,7 @@ from engine_cli.application.session import (
 from engine_cli.application.terminal import ServerTerminalStore
 from engine_cli.config import ConfigResolver
 from engine_cli.infrastructure.persistence import AppPaths, SqliteServerInstanceRepository
+from engine_cli.infrastructure.persistence.sqlite import SqliteTaskRunRepository
 
 from engine_cli.application.composition.runtime import AppRuntime
 
@@ -42,10 +44,16 @@ def create_app_runtime(
     )
 
     terminal_store = ServerTerminalStore()
+    execution_service = ExecutionService(
+        task_repository=SqliteTaskRunRepository(app_paths.db_path)
+    )
     server_manager = ServerInstanceManager(
         catalog=SqliteServerInstanceRepository(app_paths.db_path)
     )
-    lifecycle_service = ServerInstanceLifecycleService(terminal_store=terminal_store)
+    lifecycle_service = ServerInstanceLifecycleService(
+        execution_service=execution_service,
+        terminal_store=terminal_store,
+    )
     server_command_service = ServerCommandService(
         lifecycle_service=lifecycle_service,
         terminal_store=terminal_store,
