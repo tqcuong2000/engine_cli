@@ -2,6 +2,7 @@ import tempfile
 from pathlib import Path
 import unittest
 
+from engine_cli.application.composition import create_app_runtime
 from engine_cli.interfaces.tui.app import EngineCli
 
 
@@ -25,14 +26,14 @@ class TestAppPersistence(unittest.TestCase):
             server_root = app_root / "server"
             server_root.mkdir()
             self._write_server_files(server_root)
-            app = EngineCli(app_root=app_root)
+            app = EngineCli(create_app_runtime(app_root=app_root))
             app.server_manager.import_server(
                 name="Lobby",
                 location=str(server_root),
                 command="java -jar fabric.jar --nogui",
             )
 
-            reloaded_app = EngineCli(app_root=app_root)
+            reloaded_app = EngineCli(create_app_runtime(app_root=app_root))
             servers = reloaded_app.server_manager.list_servers()
 
             self.assertEqual(len(servers), 1)

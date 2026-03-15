@@ -3,6 +3,7 @@ from pathlib import Path
 import unittest
 
 from engine_cli.application import ServerTerminalStore, SessionContext
+from engine_cli.application.composition import create_app_runtime
 from engine_cli.domain import OperatingMode
 from engine_cli.interfaces.tui.app import EngineCli
 from engine_cli.interfaces.tui.body.conversation import ConversationBody
@@ -17,7 +18,7 @@ from engine_cli.interfaces.tui.layout.header import Header
 class TestTuiShellPhase1(unittest.TestCase):
     def test_app_has_session_context_default(self):
         with tempfile.TemporaryDirectory() as temp_dir:
-            app = EngineCli(app_root=Path(temp_dir))
+            app = EngineCli(create_app_runtime(app_root=Path(temp_dir)))
             self.assertEqual(app.session_context.mode, OperatingMode.BASE)
             self.assertIsNone(app.session_context.active_server_instance_id)
             self.assertEqual(

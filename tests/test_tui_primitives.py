@@ -1,10 +1,13 @@
 import tempfile
 from pathlib import Path
-from typing import Any, cast
 import unittest
+from unittest import mock
 
 from engine_cli.application import ServerInstanceManager, SessionContext
-from engine_cli.application.lifecycle import ServerInstanceLifecycleService
+from engine_cli.application.lifecycle import (
+    ServerInstanceLifecycleService,
+    ServerRuntimeStateResolver,
+)
 from engine_cli.interfaces.tui.components import PanelTabDefinition, TabbedPanelFrame
 from engine_cli.interfaces.tui.modals import AddServerModalScreen, ConfirmModalScreen
 from engine_cli.interfaces.tui.panel.context import PanelViewContext
@@ -157,14 +160,16 @@ class TestTuiPrimitives(unittest.TestCase):
                 command="java -jar fabric.jar --nogui",
             )
             lifecycle_service = ServerInstanceLifecycleService()
-            cast(Any, lifecycle_service).get_handle = lambda _server_id: object()
+            lifecycle_service.get_handle = mock.Mock(return_value=object())  # type: ignore[method-assign]
             view = ServersPanelView(
                 PanelViewContext(
                     session_context=SessionContext(
                         active_server_instance_id=server.server_instance_id
                     ),
                     server_manager=manager,
-                    lifecycle_service=lifecycle_service,
+                    server_runtime_state_resolver=ServerRuntimeStateResolver(
+                        lifecycle_service
+                    ),
                 )
             )
 

@@ -6,10 +6,14 @@ from engine_cli.application.lifecycle.errors import (
 from engine_cli.application.lifecycle.server_instance import (
     ServerInstanceLifecycleService,
 )
+from engine_cli.application.lifecycle.server_runtime_state import (
+    ServerRuntimeStateResolver,
+)
 
 __all__ = [
     "AgentRuntimeLifecycleService",
     "ServerInstanceLifecycleError",
     "ServerInstanceLifecycleService",
+    "ServerRuntimeStateResolver",
     "ServerInstanceValidationError",
 ]

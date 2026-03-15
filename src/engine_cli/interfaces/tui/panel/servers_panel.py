@@ -4,6 +4,7 @@ from textual.widget import Widget
 from textual.widgets import Button, Static
 from typing import TypedDict
 
+from engine_cli.domain import ServerInstance
 from engine_cli.interfaces.tui.panel.context import PanelViewContext
 
 
@@ -24,7 +25,7 @@ class ServersPanelView(Widget):
 
     def compose(self) -> ComposeResult:
         entries = self.server_entries()
-        active_server = self.panel_context.server_manager.get_server(
+        active_server = self._resolve_server(
             self.panel_context.session_context.active_server_instance_id or ""
         )
         has_selection = active_server is not None
@@ -72,7 +73,10 @@ class ServersPanelView(Widget):
     def server_entries(self) -> list[ServerEntry]:
         """Return pure server-entry data for rendering and tests."""
         entries: list[ServerEntry] = []
-        for server in self.panel_context.server_manager.list_servers():
+        for persisted_server in self.panel_context.server_manager.list_servers():
+            server = self._resolve_server(persisted_server.server_instance_id)
+            if server is None:
+                continue
             is_active = (
                 server.server_instance_id
                 == self.panel_context.session_context.active_server_instance_id
@@ -91,15 +95,16 @@ class ServersPanelView(Widget):
             )
         return entries
 
-    def _is_running(self, server: object) -> bool:
+    def _is_running(self, server: ServerInstance | None) -> bool:
         """Return whether a server is currently in the running state."""
-        server_instance_id = getattr(server, "server_instance_id", None)
-        if (
-            isinstance(server_instance_id, str)
-            and self.panel_context.lifecycle_service is not None
-            and self.panel_context.lifecycle_service.get_handle(server_instance_id)
-            is not None
-        ):
-            return True
         lifecycle_state = getattr(server, "lifecycle_state", None)
         return bool(lifecycle_state is not None and lifecycle_state.value == "running")
+
+    def _resolve_server(self, server_instance_id: str) -> ServerInstance | None:
+        server = self.panel_context.server_manager.get_server(server_instance_id)
+        if server is None:
+            return None
+        resolver = self.panel_context.server_runtime_state_resolver
+        if resolver is None:
+            return server
+        return resolver.overlay(server)

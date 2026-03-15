@@ -5,18 +5,12 @@ from textual.containers import Container, Horizontal, Vertical
 from textual.widgets import Button
 
 from engine_cli.application import (
-    AgentProfileSelectionService,
     InvalidModeSwitchError,
     ServerCommandError,
-    ServerCommandService,
-    ServerInstanceManager,
     ServerInstanceNotFoundError,
-    ServerInstanceLifecycleService,
-    ServerTerminalStore,
-    SessionContext,
 )
-from engine_cli.config import ConfigResolver, ResolvedSettings
-from engine_cli.domain import OperatingMode, ServerInstanceLifecycleState
+from engine_cli.application.composition import AppRuntime, create_app_runtime
+from engine_cli.domain import OperatingMode, ServerInstance
 from engine_cli.interfaces.tui.layout.body import Body
 from engine_cli.interfaces.tui.layout.footer import Footer
 from engine_cli.interfaces.tui.layout.header import Header
@@ -24,7 +18,6 @@ from engine_cli.interfaces.tui.layout.panel import Panel
 from engine_cli.interfaces.tui.main.user_inputs import UserInputs
 from engine_cli.interfaces.tui.modals import AddServerModalScreen, ConfirmModalScreen
 from engine_cli.interfaces.tui.theme.engine_dark import ENGINE_THEME
-from engine_cli.infrastructure.persistence import AppPaths, SqliteServerInstanceRepository
 
 
 class EngineCli(App):
@@ -40,35 +33,19 @@ class EngineCli(App):
         ("]", "next_panel_tab", "Next panel"),
     ]
 
-    def __init__(
-        self,
-        *,
-        app_root: Path | None = None,
-        workspace_root: Path | None = None,
-    ) -> None:
+    def __init__(self, runtime: AppRuntime) -> None:
         super().__init__()
-        self.app_paths = AppPaths.from_root(app_root)
-        self.workspace_root = (
-            workspace_root.expanduser().resolve() if workspace_root is not None else None
-        )
-        self.settings: ResolvedSettings = ConfigResolver().resolve(
-            global_config_dir=self.app_paths.config_dir,
-            workspace_root=self.workspace_root,
-        )
-        self.session_context = SessionContext()
-        self.profile_selection_service = AgentProfileSelectionService()
-        self._sync_active_agent_profile()
-        self.terminal_store = ServerTerminalStore()
-        self.server_manager = ServerInstanceManager(
-            catalog=SqliteServerInstanceRepository(self.app_paths.db_path)
-        )
-        self.lifecycle_service = ServerInstanceLifecycleService(
-            terminal_store=self.terminal_store
-        )
-        self.server_command_service = ServerCommandService(
-            lifecycle_service=self.lifecycle_service,
-            terminal_store=self.terminal_store,
-        )
+        self.runtime = runtime
+        self.app_paths = runtime.app_paths
+        self.workspace_root = runtime.workspace_root
+        self.settings = runtime.settings
+        self.session_context = runtime.session_context
+        self.profile_selection_service = runtime.profile_selection_service
+        self.terminal_store = runtime.terminal_store
+        self.server_manager = runtime.server_manager
+        self.lifecycle_service = runtime.lifecycle_service
+        self.server_command_service = runtime.server_command_service
+        self.server_runtime_state_resolver = runtime.server_runtime_state_resolver
 
     def on_mount(self) -> None:
         """Called when the app is first mounted."""
@@ -86,7 +63,7 @@ class EngineCli(App):
                     yield Panel(
                         self.session_context,
                         self.server_manager,
-                        self.lifecycle_service,
+                        self.server_runtime_state_resolver,
                     )
             with Container(classes="app-bottom"):
                 yield Footer(self.session_context)
@@ -245,7 +222,7 @@ class EngineCli(App):
         self._sync_active_agent_profile()
         self._refresh_mode_aware_widgets()
 
-    def _get_active_server(self):
+    def _get_active_server(self) -> ServerInstance | None:
         """Return the selected server from the catalog, if any."""
         server_id = self.session_context.active_server_instance_id
         if server_id is None:
@@ -253,9 +230,7 @@ class EngineCli(App):
         server = self.server_manager.get_server(server_id)
         if server is None:
             return None
-        if self.lifecycle_service.get_handle(server_id) is not None:
-            server.lifecycle_state = ServerInstanceLifecycleState.RUNNING
-        return server
+        return self.server_runtime_state_resolver.overlay(server)
 
 
 def run(
@@ -263,10 +238,11 @@ def run(
     app_root: Path | None = None,
     workspace_root: Path | None = None,
 ) -> None:
-    app = EngineCli(
+    runtime = create_app_runtime(
         app_root=app_root,
         workspace_root=workspace_root or Path.cwd(),
     )
+    app = EngineCli(runtime)
     app.run()
 
 

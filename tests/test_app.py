@@ -5,6 +5,7 @@ from typing import Any, cast
 import unittest
 from unittest import mock
 
+from engine_cli.application.composition import create_app_runtime
 from engine_cli.domain import OperatingMode
 from engine_cli.domain import ServerInstance, ServerInstanceLifecycleState
 import engine_cli.interfaces.tui.app as app_module
@@ -23,7 +24,12 @@ class TestApp(unittest.TestCase):
         self._temp_dir.cleanup()
 
     def create_app(self, *, workspace_root: Path | None = None) -> EngineCli:
-        return EngineCli(app_root=self.app_root, workspace_root=workspace_root)
+        return EngineCli(
+            create_app_runtime(
+                app_root=self.app_root,
+                workspace_root=workspace_root,
+            )
+        )
 
     def test_app_init(self):
         app = self.create_app()
@@ -32,11 +38,6 @@ class TestApp(unittest.TestCase):
         self.assertIsNotNone(app.server_manager)
         self.assertEqual(app.app_paths.db_path, self.app_root / "db" / "engine.db")
         self.assertEqual(app.session_context.active_agent_profile_id, "base-default")
-
-    def test_engine_cli_accepts_explicit_workspace_root(self):
-        app = self.create_app(workspace_root=self.workspace_root)
-
-        self.assertEqual(app.workspace_root, self.workspace_root.resolve())
 
     def test_engine_cli_applies_default_agent_profile_from_resolved_config(self):
         settings_path = self.app_root / "config" / "settings.json"
@@ -79,16 +80,19 @@ class TestApp(unittest.TestCase):
         self.assertEqual(app.session_context.active_agent_profile_id, "global-base")
 
     def test_run_uses_current_working_directory_when_workspace_root_is_not_provided(self):
+        runtime = object()
         with (
             mock.patch.object(app_module.Path, "cwd", return_value=self.workspace_root),
+            mock.patch.object(app_module, "create_app_runtime", return_value=runtime) as create_runtime,
             mock.patch.object(app_module, "EngineCli") as engine_cli_cls,
         ):
             app_module.run()
 
-        engine_cli_cls.assert_called_once_with(
+        create_runtime.assert_called_once_with(
             app_root=None,
             workspace_root=self.workspace_root,
         )
+        engine_cli_cls.assert_called_once_with(runtime)
         engine_cli_cls.return_value.run.assert_called_once_with()
 
     def test_app_bindings_include_mode_and_panel_controls(self):
