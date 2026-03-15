@@ -82,7 +82,8 @@ class AgentRuntimeManager:
 
         self._assert_server_projection_matches(runtime.server_instance_id)
         removed_runtime = self.catalog.remove_runtime(agent_runtime_id)
-        assert removed_runtime is not None
+        if removed_runtime is None:
+            raise AgentRuntimeNotFoundError(agent_runtime_id)
         try:
             self._write_server_projection(runtime.server_instance_id)
         except Exception:

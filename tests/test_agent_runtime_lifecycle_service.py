@@ -112,6 +112,13 @@ class TestAgentRuntimeLifecycleService(unittest.TestCase):
             AgentRuntimeLifecycleState.DRAFT,
         )
 
+    def test_validate_rejects_blank_required_fields(self):
+        runtime = self.create_runtime(agent_runtime_id=" ")
+        server = self.create_server()
+
+        with self.assertRaises(AgentRuntimeValidationError):
+            self.lifecycle_service.validate(runtime, server)
+
     def test_start_persists_start_task_and_transitions_to_active(self):
         runtime = self.create_runtime()
         self.runtime_repository.save_runtime(runtime)
@@ -130,6 +137,23 @@ class TestAgentRuntimeLifecycleService(unittest.TestCase):
             persisted_runtime.lifecycle_state,
             AgentRuntimeLifecycleState.ACTIVE,
         )
+
+    def test_start_rejects_blank_runtime_name(self):
+        runtime = self.create_runtime()
+        runtime.name = " "
+        server = self.create_server()
+
+        with self.assertRaises(AgentRuntimeValidationError):
+            self.lifecycle_service.start(runtime, server)
+
+    def test_stop_rejects_blank_runtime_id(self):
+        runtime = self.create_runtime(
+            agent_runtime_id=" ",
+            lifecycle_state=AgentRuntimeLifecycleState.ACTIVE,
+        )
+
+        with self.assertRaises(AgentRuntimeValidationError):
+            self.lifecycle_service.stop(runtime)
 
     def test_stop_persists_stop_task_and_transitions_to_stopped(self):
         runtime = self.create_runtime()

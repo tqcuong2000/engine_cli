@@ -93,3 +93,14 @@ class TestSqliteAgentRuntimeRepository(unittest.TestCase):
             repository = self.create_repository(Path(temp_dir) / "engine.db")
 
             self.assertIsNone(repository.remove_runtime("missing"))
+
+    def test_repository_remove_runtime_returns_deleted_runtime(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repository = self.create_repository(Path(temp_dir) / "engine.db")
+            runtime = self.create_runtime()
+            repository.save_runtime(runtime)
+
+            removed_runtime = repository.remove_runtime(runtime.agent_runtime_id)
+
+            self.assertEqual(removed_runtime, runtime)
+            self.assertIsNone(repository.get_runtime(runtime.agent_runtime_id))

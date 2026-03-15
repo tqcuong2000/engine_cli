@@ -52,6 +52,7 @@ class AgentRuntimeLifecycleService:
 
     def start(self, runtime: AgentRuntime, server: ServerInstance) -> TaskRun:
         self._ensure_runtime_matches_server(runtime, server)
+        self._ensure_required_fields(runtime)
         if server.lifecycle_state is not ServerInstanceLifecycleState.RUNNING:
             raise AgentRuntimeLifecycleError(
                 "Cannot start an agent runtime unless the attached server is running."
@@ -94,6 +95,7 @@ class AgentRuntimeLifecycleService:
         return task
 
     def stop(self, runtime: AgentRuntime) -> TaskRun:
+        self._ensure_required_fields(runtime)
         if runtime.lifecycle_state is not AgentRuntimeLifecycleState.ACTIVE:
             raise AgentRuntimeLifecycleError(
                 f"Cannot stop runtime from state {runtime.lifecycle_state.value!r}."
@@ -149,6 +151,14 @@ class AgentRuntimeLifecycleService:
             )
 
     def _ensure_required_fields(self, runtime: AgentRuntime) -> None:
+        if not runtime.agent_runtime_id.strip():
+            raise AgentRuntimeValidationError(
+                "Agent runtime must reference a non-empty runtime id."
+            )
+        if not runtime.name.strip():
+            raise AgentRuntimeValidationError(
+                "Agent runtime must reference a non-empty name."
+            )
         if not runtime.agent_profile_id.strip():
             raise AgentRuntimeValidationError(
                 "Agent runtime must reference a non-empty agent profile id."
@@ -156,4 +166,8 @@ class AgentRuntimeLifecycleService:
         if not runtime.server_instance_id.strip():
             raise AgentRuntimeValidationError(
                 "Agent runtime must reference a non-empty server instance id."
+            )
+        if not runtime.agent_kind.strip():
+            raise AgentRuntimeValidationError(
+                "Agent runtime must reference a non-empty agent kind."
             )

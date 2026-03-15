@@ -50,6 +50,12 @@ class InMemoryAgentRuntimeSupervisor:
         runtime: AgentRuntime,
         server: ServerInstance,
     ) -> ManagedAgentRuntimeHandle:
+        if runtime.agent_runtime_id in self._handles:
+            raise RuntimeError(
+                "Agent runtime is already active for "
+                f"runtime={runtime.agent_runtime_id!r} "
+                f"server={server.server_instance_id!r}."
+            )
         handle = ManagedAgentRuntimeHandle(
             agent_runtime_id=runtime.agent_runtime_id,
             server_instance_id=server.server_instance_id,

@@ -4,6 +4,7 @@ import unittest
 
 from engine_cli.infrastructure.agent_runtime import InMemoryAgentRuntimeSupervisor
 from engine_cli.application.composition import create_app_runtime
+from engine_cli.domain import AgentRuntime, AgentRuntimeLifecycleState
 from engine_cli.infrastructure.persistence import (
     SqliteAgentRuntimeRepository,
     SqliteServerInstanceRepository,
@@ -56,3 +57,31 @@ class TestAppComposition(unittest.TestCase):
             )
 
             self.assertEqual(runtime.workspace_root, workspace_root.resolve())
+
+    def test_create_app_runtime_reconciles_transient_agent_runtime_state(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            app_root = Path(temp_dir)
+            runtime_repository = SqliteAgentRuntimeRepository(app_root / "db" / "engine.db")
+            runtime_repository.save_runtime(
+                AgentRuntime(
+                    agent_runtime_id="runtime-1",
+                    name="Ops Bot",
+                    agent_profile_id="profile-1",
+                    server_instance_id="srv-1",
+                    agent_kind="server_ops",
+                    lifecycle_state=AgentRuntimeLifecycleState.ACTIVE,
+                )
+            )
+
+            runtime = create_app_runtime(app_root=app_root)
+
+            persisted_runtime = runtime.agent_runtime_manager.get_runtime("runtime-1")
+            self.assertIsNotNone(persisted_runtime)
+            assert persisted_runtime is not None
+            self.assertEqual(
+                persisted_runtime.lifecycle_state,
+                AgentRuntimeLifecycleState.STOPPED,
+            )
+            self.assertIsNone(
+                runtime.agent_runtime_lifecycle_service.get_handle("runtime-1")
+            )

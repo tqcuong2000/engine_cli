@@ -25,6 +25,16 @@ from engine_cli.infrastructure.persistence import (
 from engine_cli.infrastructure.persistence.sqlite import SqliteTaskRunRepository
 
 from engine_cli.application.composition.runtime import AppRuntime
+from engine_cli.domain import AgentRuntimeLifecycleState
+
+
+TRANSIENT_AGENT_RUNTIME_STATES = frozenset(
+    {
+        "starting",
+        "active",
+        "stopping",
+    }
+)
 
 
 def create_app_runtime(
@@ -59,6 +69,7 @@ def create_app_runtime(
     )
     server_repository = SqliteServerInstanceRepository(app_paths.db_path)
     agent_runtime_repository = SqliteAgentRuntimeRepository(app_paths.db_path)
+    _reconcile_persisted_agent_runtimes(agent_runtime_repository)
     server_manager = ServerInstanceManager(
         catalog=server_repository,
         runtime_catalog=agent_runtime_repository,
@@ -98,3 +109,14 @@ def create_app_runtime(
         server_command_service=server_command_service,
         server_runtime_state_resolver=server_runtime_state_resolver,
     )
+
+
+def _reconcile_persisted_agent_runtimes(
+    agent_runtime_repository: SqliteAgentRuntimeRepository,
+) -> None:
+    """Normalize transient persisted runtime states into a safe recoverable state."""
+    for runtime in agent_runtime_repository.list_runtimes():
+        if runtime.lifecycle_state.value not in TRANSIENT_AGENT_RUNTIME_STATES:
+            continue
+        runtime.lifecycle_state = AgentRuntimeLifecycleState.STOPPED
+        agent_runtime_repository.save_runtime(runtime)

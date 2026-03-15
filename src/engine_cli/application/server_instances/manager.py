@@ -82,7 +82,10 @@ class ServerInstanceManager:
 
     def _list_attached_runtime_ids(self, server_instance_id: str) -> list[str]:
         if self.runtime_catalog is None:
-            return []
+            server = self.catalog.get_server(server_instance_id)
+            if server is None:
+                return []
+            return list(server.attached_agents)
         return [
             runtime.agent_runtime_id
             for runtime in self.runtime_catalog.list_runtimes_for_server(server_instance_id)

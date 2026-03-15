@@ -38,49 +38,53 @@ class TestAgentRuntimeVerticalSlice(unittest.TestCase):
             )
             profile = runtime.settings.default_profile_for(OperatingMode.SERVER)
 
-            runtime.lifecycle_service.validate(server)
-            server_start_task = runtime.lifecycle_service.start(server)
-            agent_runtime = runtime.agent_runtime_manager.create_runtime(
-                name="Ops Bot",
-                agent_profile=profile,
-                server=server,
-            )
-            validated_runtime = runtime.agent_runtime_lifecycle_service.validate(
-                agent_runtime,
-                server,
-            )
-            start_task = runtime.agent_runtime_lifecycle_service.start(
-                validated_runtime,
-                server,
-            )
-            stop_task = runtime.agent_runtime_lifecycle_service.stop(validated_runtime)
+            server_started = False
+            try:
+                runtime.lifecycle_service.validate(server)
+                server_start_task = runtime.lifecycle_service.start(server)
+                server_started = True
+                agent_runtime = runtime.agent_runtime_manager.create_runtime(
+                    name="Ops Bot",
+                    agent_profile=profile,
+                    server=server,
+                )
+                validated_runtime = runtime.agent_runtime_lifecycle_service.validate(
+                    agent_runtime,
+                    server,
+                )
+                start_task = runtime.agent_runtime_lifecycle_service.start(
+                    validated_runtime,
+                    server,
+                )
+                stop_task = runtime.agent_runtime_lifecycle_service.stop(validated_runtime)
 
-            self.assertEqual(server_start_task.status, TaskStatus.COMPLETED)
-            self.assertEqual(start_task.status, TaskStatus.COMPLETED)
-            self.assertEqual(stop_task.status, TaskStatus.COMPLETED)
-            persisted_runtime = runtime.agent_runtime_manager.get_runtime(
-                validated_runtime.agent_runtime_id
-            )
-            self.assertIsNotNone(persisted_runtime)
-            assert persisted_runtime is not None
-            persisted_server = runtime.server_manager.get_server(server.server_instance_id)
-            self.assertIsNotNone(persisted_server)
-            assert persisted_server is not None
-            self.assertEqual(
-                persisted_runtime.lifecycle_state,
-                AgentRuntimeLifecycleState.STOPPED,
-            )
-            self.assertEqual(
-                persisted_server.attached_agents,
-                [validated_runtime.agent_runtime_id],
-            )
-            persisted_tasks = runtime.agent_runtime_lifecycle_service.execution_service.list_tasks_for_target(
-                start_task.target_type,
-                start_task.target_id,
-            )
-            self.assertEqual(
-                [persisted_task.task_kind for persisted_task in persisted_tasks],
-                ["agent_runtime.start", "agent_runtime.stop"],
-            )
-
-            runtime.lifecycle_service.stop(server)
+                self.assertEqual(server_start_task.status, TaskStatus.COMPLETED)
+                self.assertEqual(start_task.status, TaskStatus.COMPLETED)
+                self.assertEqual(stop_task.status, TaskStatus.COMPLETED)
+                persisted_runtime = runtime.agent_runtime_manager.get_runtime(
+                    validated_runtime.agent_runtime_id
+                )
+                self.assertIsNotNone(persisted_runtime)
+                assert persisted_runtime is not None
+                persisted_server = runtime.server_manager.get_server(server.server_instance_id)
+                self.assertIsNotNone(persisted_server)
+                assert persisted_server is not None
+                self.assertEqual(
+                    persisted_runtime.lifecycle_state,
+                    AgentRuntimeLifecycleState.STOPPED,
+                )
+                self.assertEqual(
+                    persisted_server.attached_agents,
+                    [validated_runtime.agent_runtime_id],
+                )
+                persisted_tasks = runtime.agent_runtime_lifecycle_service.execution_service.list_tasks_for_target(
+                    start_task.target_type,
+                    start_task.target_id,
+                )
+                self.assertEqual(
+                    [persisted_task.task_kind for persisted_task in persisted_tasks],
+                    ["agent_runtime.start", "agent_runtime.stop"],
+                )
+            finally:
+                if server_started:
+                    runtime.lifecycle_service.stop(server)

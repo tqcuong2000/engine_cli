@@ -8,7 +8,12 @@ from engine_cli.application import (
     ServerInstanceHasAttachedRuntimesError,
     ServerInstanceNotFoundError,
 )
-from engine_cli.domain import AgentRuntime, AgentRuntimeLifecycleState
+from engine_cli.domain import (
+    AgentRuntime,
+    AgentRuntimeLifecycleState,
+    ServerInstance,
+    ServerInstanceLifecycleState,
+)
 from engine_cli.infrastructure.persistence import SqliteServerInstanceRepository
 
 
@@ -62,6 +67,25 @@ class TestServerInstanceManager(unittest.TestCase):
 
         with self.assertRaises(ServerInstanceNotFoundError):
             manager.require_server("missing")
+
+    def test_remove_server_uses_server_projection_when_runtime_catalog_is_unset(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            server_catalog = SqliteServerInstanceRepository(Path(temp_dir) / "engine.db")
+            manager = ServerInstanceManager(catalog=server_catalog)
+            server = ServerInstance(
+                server_instance_id="srv-1",
+                name="Lobby",
+                location="X:/servers/lobby",
+                command="java -jar fabric.jar --nogui",
+                minecraft_version="1.21.11",
+                server_distribution="fabric",
+                lifecycle_state=ServerInstanceLifecycleState.CONFIGURED,
+                attached_agents=["runtime-1"],
+            )
+            server_catalog.save_server(server)
+
+            with self.assertRaises(ServerInstanceHasAttachedRuntimesError):
+                manager.remove_server(server.server_instance_id)
 
     def test_manager_works_with_sqlite_repository_contract(self):
         with tempfile.TemporaryDirectory() as temp_dir:
