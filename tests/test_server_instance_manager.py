@@ -4,6 +4,7 @@ import unittest
 
 from engine_cli.application import (
     InMemoryAgentRuntimeCatalog,
+    ServerInspectionError,
     ServerInstanceManager,
     ServerInstanceHasAttachedRuntimesError,
     ServerInstanceNotFoundError,
@@ -46,6 +47,12 @@ class TestServerInstanceManager(unittest.TestCase):
             self.assertEqual(server.name, "Lobby")
             self.assertEqual(len(manager.list_servers()), 1)
             self.assertIs(manager.get_server(server.server_instance_id), server)
+
+    def test_inspect_server_raises_application_error(self):
+        manager = ServerInstanceManager()
+
+        with self.assertRaises(ServerInspectionError):
+            manager.inspect_server("X:/missing-server-root")
 
     def test_require_server_returns_existing_server(self):
         manager = ServerInstanceManager()

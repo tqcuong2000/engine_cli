@@ -3,12 +3,12 @@ from textual.app import ComposeResult
 from textual.containers import Vertical
 from textual.widgets import Input
 
-from engine_cli.application import ServerInstanceManager
-from engine_cli.domain import ServerInstance
-from engine_cli.infrastructure.minecraft.inspection import (
+from engine_cli.application import (
     ServerInspectionError,
     ServerInspectionResult,
+    ServerInstanceManager,
 )
+from engine_cli.domain import ServerInstance
 from engine_cli.interfaces.tui.modals.base import ModalFrameScreen
 
 

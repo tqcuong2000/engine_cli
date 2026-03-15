@@ -10,6 +10,7 @@ from engine_cli.application import (
     ServerInstanceLifecycleService,
 )
 from engine_cli.domain import ServerInstance, ServerInstanceLifecycleState, TaskStatus
+from engine_cli.infrastructure.persistence import SqliteServerInstanceRepository
 from engine_cli.infrastructure.process import LocalProcessManager
 from engine_cli.infrastructure.persistence.sqlite import SqliteTaskRunRepository
 
@@ -17,13 +18,16 @@ from engine_cli.infrastructure.persistence.sqlite import SqliteTaskRunRepository
 class TestServerInstanceVerticalSlice(unittest.TestCase):
     def setUp(self):
         self._temp_dir = tempfile.TemporaryDirectory()
-        self.task_repository = SqliteTaskRunRepository(Path(self._temp_dir.name) / "engine.db")
+        self.database_path = Path(self._temp_dir.name) / "engine.db"
+        self.task_repository = SqliteTaskRunRepository(self.database_path)
+        self.server_repository = SqliteServerInstanceRepository(self.database_path)
         self.execution_service = ExecutionService(task_repository=self.task_repository)
         self.process_manager = LocalProcessManager()
         self.terminal_store = ServerTerminalStore()
         self.lifecycle_service = ServerInstanceLifecycleService(
             execution_service=self.execution_service,
             process_manager=self.process_manager,
+            server_catalog=self.server_repository,
             terminal_store=self.terminal_store,
             observation_timeout=0.5,
             poll_interval=0.05,
@@ -49,6 +53,7 @@ class TestServerInstanceVerticalSlice(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as temp_dir:
             server = self._build_server(temp_dir, command)
+            self.server_repository.save_server(server)
             try:
                 task = self.lifecycle_service.start(server)
 
@@ -66,6 +71,13 @@ class TestServerInstanceVerticalSlice(unittest.TestCase):
                     [line.raw for line in self.terminal_store.get_buffer("srv-1").snapshot()],
                     ["server booted"],
                 )
+                persisted_server = self.server_repository.get_server("srv-1")
+                self.assertIsNotNone(persisted_server)
+                assert persisted_server is not None
+                self.assertEqual(
+                    persisted_server.lifecycle_state,
+                    ServerInstanceLifecycleState.CONFIGURED,
+                )
             finally:
                 if server.lifecycle_state is ServerInstanceLifecycleState.RUNNING:
                     self.lifecycle_service.stop(server)
@@ -74,6 +86,7 @@ class TestServerInstanceVerticalSlice(unittest.TestCase):
         command = f'"{sys.executable}" -c "import time; time.sleep(30)"'
         with tempfile.TemporaryDirectory() as temp_dir:
             server = self._build_server(temp_dir, command)
+            self.server_repository.save_server(server)
 
             self.lifecycle_service.start(server)
             task = self.lifecycle_service.stop(server)
@@ -93,11 +106,19 @@ class TestServerInstanceVerticalSlice(unittest.TestCase):
                 [persisted_task.status for persisted_task in persisted_tasks],
                 [TaskStatus.COMPLETED, TaskStatus.COMPLETED],
             )
+            persisted_server = self.server_repository.get_server("srv-1")
+            self.assertIsNotNone(persisted_server)
+            assert persisted_server is not None
+            self.assertEqual(
+                persisted_server.lifecycle_state,
+                ServerInstanceLifecycleState.STOPPED,
+            )
 
     def test_start_failure_moves_server_to_failed(self):
         command = f'"{sys.executable}" -c "import sys; sys.exit(1)"'
         with tempfile.TemporaryDirectory() as temp_dir:
             server = self._build_server(temp_dir, command)
+            self.server_repository.save_server(server)
 
             task = self.lifecycle_service.start(server)
 
@@ -109,6 +130,13 @@ class TestServerInstanceVerticalSlice(unittest.TestCase):
             )
             self.assertEqual(len(persisted_tasks), 1)
             self.assertEqual(persisted_tasks[0].status, TaskStatus.FAILED)
+            persisted_server = self.server_repository.get_server("srv-1")
+            self.assertIsNotNone(persisted_server)
+            assert persisted_server is not None
+            self.assertEqual(
+                persisted_server.lifecycle_state,
+                ServerInstanceLifecycleState.FAILED,
+            )
 
     def test_invalid_start_and_stop_requests_are_rejected(self):
         command = f'"{sys.executable}" -c "import time; time.sleep(30)"'

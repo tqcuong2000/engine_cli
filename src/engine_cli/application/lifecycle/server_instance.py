@@ -1,9 +1,19 @@
+from dataclasses import replace
 from time import monotonic, sleep
 
 from engine_cli.application.execution import ExecutionService
 from engine_cli.application.lifecycle.errors import (
     ServerInstanceLifecycleError,
     ServerInstanceValidationError,
+)
+from engine_cli.application.lifecycle.process_contract import (
+    NullProcessManager,
+    ProcessHandle,
+    ProcessManager,
+)
+from engine_cli.application.server_instances import (
+    InMemoryServerCatalog,
+    ServerInstanceRepository,
 )
 from engine_cli.application.terminal import ServerTerminalStore
 from engine_cli.domain import (
@@ -13,9 +23,6 @@ from engine_cli.domain import (
     TaskStatus,
     TaskTargetType,
 )
-from engine_cli.infrastructure.process.local_manager import LocalProcessManager
-from engine_cli.infrastructure.process.log_streamer import ProcessLogStreamer
-from engine_cli.infrastructure.process.managed_process import ManagedProcessHandle
 
 
 class ServerInstanceLifecycleService:
@@ -24,18 +31,20 @@ class ServerInstanceLifecycleService:
     def __init__(
         self,
         execution_service: ExecutionService | None = None,
-        process_manager: LocalProcessManager | None = None,
+        process_manager: ProcessManager | None = None,
+        server_catalog: ServerInstanceRepository | None = None,
         terminal_store: ServerTerminalStore | None = None,
         observation_timeout: float = 1.0,
         poll_interval: float = 0.05,
     ) -> None:
         """Initialize the service with execution and process management dependencies."""
         self.execution_service = execution_service or ExecutionService()
-        self.process_manager = process_manager or LocalProcessManager()
+        self.process_manager = process_manager or NullProcessManager()
+        self.server_catalog = server_catalog or InMemoryServerCatalog()
         self.terminal_store = terminal_store or ServerTerminalStore()
         self.observation_timeout = observation_timeout
         self.poll_interval = poll_interval
-        self._handles: dict[str, ManagedProcessHandle] = {}
+        self._handles: dict[str, ProcessHandle] = {}
 
     def validate(self, server: ServerInstance) -> ServerInstance:
         """Verify server inputs and transition from DRAFT to CONFIGURED if valid."""
@@ -49,6 +58,7 @@ class ServerInstanceLifecycleService:
         ):
             return server
         server.lifecycle_state = ServerInstanceLifecycleState.CONFIGURED
+        self.server_catalog.save_server(server)
         return server
 
     def start(self, server: ServerInstance) -> TaskRun:
@@ -67,8 +77,13 @@ class ServerInstanceLifecycleService:
             terminal_buffer = self.terminal_store.get_buffer(server.server_instance_id)
             terminal_buffer.clear()
             handle = self.process_manager.start(server.command, server.location)
-            handle.log_streamer = self._create_log_streamer(handle, terminal_buffer)
-            handle.log_streamer.start()
+            handle.set_log_streamer(self.process_manager.create_log_streamer(
+                handle,
+                terminal_buffer.append,
+            ))
+            log_streamer = handle.get_log_streamer()
+            assert log_streamer is not None
+            log_streamer.start()
             if not self._wait_for_state(handle, desired_running=True):
                 self._shutdown_handle(handle)
                 raise ServerInstanceLifecycleError(
@@ -84,8 +99,13 @@ class ServerInstanceLifecycleService:
         )
         if result.final_status is TaskStatus.COMPLETED:
             server.lifecycle_state = ServerInstanceLifecycleState.RUNNING
+            self._save_recovery_state(
+                server,
+                ServerInstanceLifecycleState.CONFIGURED,
+            )
         else:
             server.lifecycle_state = ServerInstanceLifecycleState.FAILED
+            self.server_catalog.save_server(server)
         task = self.execution_service.get_task(result.task_run_id)
         if task is None:
             raise ServerInstanceLifecycleError("Start task record was not persisted.")
@@ -121,20 +141,22 @@ class ServerInstanceLifecycleService:
         )
         if result.final_status is TaskStatus.COMPLETED:
             server.lifecycle_state = ServerInstanceLifecycleState.STOPPED
+            self.server_catalog.save_server(server)
         else:
             server.lifecycle_state = ServerInstanceLifecycleState.FAILED
+            self.server_catalog.save_server(server)
         task = self.execution_service.get_task(result.task_run_id)
         if task is None:
             raise ServerInstanceLifecycleError("Stop task record was not persisted.")
         return task
 
-    def get_handle(self, server_instance_id: str) -> ManagedProcessHandle | None:
+    def get_handle(self, server_instance_id: str) -> ProcessHandle | None:
         """Return the active runtime handle for a managed server, if one exists."""
         return self._handles.get(server_instance_id)
 
     def _wait_for_state(
         self,
-        handle: ManagedProcessHandle,
+        handle: ProcessHandle,
         *,
         desired_running: bool,
     ) -> bool:
@@ -153,20 +175,21 @@ class ServerInstanceLifecycleService:
             sleep(self.poll_interval)
         return not self.process_manager.is_running(handle)
 
-    def _create_log_streamer(
-        self,
-        handle: ManagedProcessHandle,
-        terminal_buffer,
-    ) -> ProcessLogStreamer:
-        """Create a log streamer for the managed process output."""
-        if handle.process.stdout is None:
-            raise ServerInstanceLifecycleError("Managed process stdout is not available.")
-        return ProcessLogStreamer(handle.process.stdout, terminal_buffer)
-
-    def _shutdown_handle(self, handle: ManagedProcessHandle) -> None:
+    def _shutdown_handle(self, handle: ProcessHandle) -> None:
         """Stop the log reader and process using a consistent shutdown sequence."""
-        if handle.log_streamer is not None:
-            handle.log_streamer.stop()
+        log_streamer = handle.get_log_streamer()
+        if log_streamer is not None:
+            log_streamer.stop()
         self.process_manager.stop(handle)
-        if handle.log_streamer is not None:
-            handle.log_streamer.join(timeout=self.observation_timeout)
+        if log_streamer is not None:
+            log_streamer.join(timeout=self.observation_timeout)
+
+    def _save_recovery_state(
+        self,
+        server: ServerInstance,
+        persisted_state: ServerInstanceLifecycleState,
+    ) -> None:
+        """Persist only the stable lifecycle state needed for safe restart recovery."""
+        self.server_catalog.save_server(
+            replace(server, lifecycle_state=persisted_state)
+        )

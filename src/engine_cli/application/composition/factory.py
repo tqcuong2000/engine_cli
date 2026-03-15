@@ -22,6 +22,7 @@ from engine_cli.infrastructure.persistence import (
     SqliteAgentRuntimeRepository,
     SqliteServerInstanceRepository,
 )
+from engine_cli.infrastructure.process import LocalProcessManager
 from engine_cli.infrastructure.persistence.sqlite import SqliteTaskRunRepository
 
 from engine_cli.application.composition.runtime import AppRuntime
@@ -69,6 +70,7 @@ def create_app_runtime(
     )
     server_repository = SqliteServerInstanceRepository(app_paths.db_path)
     agent_runtime_repository = SqliteAgentRuntimeRepository(app_paths.db_path)
+    _reconcile_persisted_servers(server_repository)
     _reconcile_persisted_agent_runtimes(agent_runtime_repository)
     server_manager = ServerInstanceManager(
         catalog=server_repository,
@@ -81,6 +83,8 @@ def create_app_runtime(
     agent_runtime_supervisor = InMemoryAgentRuntimeSupervisor()
     lifecycle_service = ServerInstanceLifecycleService(
         execution_service=execution_service,
+        process_manager=LocalProcessManager(),
+        server_catalog=server_repository,
         terminal_store=terminal_store,
     )
     agent_runtime_lifecycle_service = AgentRuntimeLifecycleService(
@@ -120,3 +124,10 @@ def _reconcile_persisted_agent_runtimes(
             continue
         runtime.lifecycle_state = AgentRuntimeLifecycleState.STOPPED
         agent_runtime_repository.save_runtime(runtime)
+
+
+def _reconcile_persisted_servers(
+    server_repository: SqliteServerInstanceRepository,
+) -> None:
+    """Normalize transient persisted server states into a safe recoverable state."""
+    server_repository.reconcile_transient_states()

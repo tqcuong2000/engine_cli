@@ -2,8 +2,6 @@ from dataclasses import dataclass
 from pathlib import Path
 import re
 
-from engine_cli.domain import ServerInstance, ServerInstanceLifecycleState
-
 
 class ServerInspectionError(Exception):
     """Raised when the server directory cannot be inspected into a valid shape."""
@@ -50,25 +48,6 @@ class MinecraftServerInspector:
         if jar_path is None:
             return None
         return f"java -Xms2G -Xmx2G -Xmn512m -jar {jar_path.name} --nogui"
-
-    def import_server(
-        self,
-        server_instance_id: str,
-        name: str,
-        location: str,
-        command: str,
-    ) -> ServerInstance:
-        """Create a draft ServerInstance from inspected metadata and explicit command input."""
-        inspection = self.inspect(location)
-        return ServerInstance(
-            server_instance_id=server_instance_id,
-            name=name,
-            location=inspection.location,
-            command=command,
-            minecraft_version=inspection.minecraft_version,
-            server_distribution=inspection.server_distribution,
-            lifecycle_state=ServerInstanceLifecycleState.DRAFT,
-        )
 
     def _read_server_properties(self, root: Path) -> str:
         """Read server.properties to confirm the directory is a valid server root."""

@@ -1,15 +1,14 @@
 from threading import Event, Thread
+from collections.abc import Callable
 from typing import IO
-
-from engine_cli.application.terminal import ServerTerminalBuffer
 
 
 class ProcessLogStreamer:
     """Read process output on a background thread and append it to a buffer."""
 
-    def __init__(self, stream: IO[str], terminal_buffer: ServerTerminalBuffer) -> None:
+    def __init__(self, stream: IO[str], write_line: Callable[[str], object]) -> None:
         self.stream = stream
-        self.terminal_buffer = terminal_buffer
+        self.write_line = write_line
         self._stop_event = Event()
         self._thread = Thread(target=self._run, daemon=True)
 
@@ -36,4 +35,4 @@ class ProcessLogStreamer:
             line = self.stream.readline()
             if line == "":
                 return
-            self.terminal_buffer.append(line)
+            self.write_line(line)

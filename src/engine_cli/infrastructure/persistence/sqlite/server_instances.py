@@ -124,6 +124,29 @@ class SqliteServerInstanceRepository:
             connection.commit()
         return existing
 
+    def reconcile_transient_states(self) -> int:
+        """Normalize transient persisted server states into a safe recoverable state."""
+        transient_states = (
+            ServerInstanceLifecycleState.STARTING.value,
+            ServerInstanceLifecycleState.RUNNING.value,
+            ServerInstanceLifecycleState.STOPPING.value,
+        )
+        query = """
+        UPDATE server_instances
+        SET lifecycle_state = ?
+        WHERE lifecycle_state IN (?, ?, ?)
+        """
+        with closing(self._connect()) as connection:
+            cursor = connection.execute(
+                query,
+                (
+                    ServerInstanceLifecycleState.STOPPED.value,
+                    *transient_states,
+                ),
+            )
+            connection.commit()
+            return cursor.rowcount
+
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.database_path)
         connection.row_factory = sqlite3.Row

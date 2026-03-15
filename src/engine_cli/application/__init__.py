@@ -31,6 +31,8 @@ from engine_cli.application.session import (
 )
 from engine_cli.application.server_instances import (
     InMemoryServerCatalog,
+    ServerInspectionError,
+    ServerInspectionResult,
     ServerInstanceManager,
     ServerInstanceManagerError,
     ServerInstanceNotFoundError,
@@ -66,6 +68,8 @@ __all__ = [
     "IncompatibleAgentProfileError",
     "InvalidAgentRuntimeProfileModeError",
     "InvalidModeSwitchError",
+    "ServerInspectionError",
+    "ServerInspectionResult",
     "ServerInstanceManager",
     "ServerInstanceHasAttachedRuntimesError",
     "ServerInstanceManagerError",
