@@ -1,13 +1,17 @@
 from pathlib import Path
+import logging
 
-from textual.app import App, ComposeResult
+from textual.app import App, ComposeResult, ScreenStackError
 from textual.containers import Container, Horizontal, Vertical
+from textual.css.query import NoMatches
 from textual.widgets import Button
 
 from engine_cli.application import (
     InvalidModeSwitchError,
     ServerCommandError,
+    ServerInstanceLifecycleError,
     ServerInstanceNotFoundError,
+    ServerInstanceValidationError,
 )
 from engine_cli.application.composition import AppRuntime, create_app_runtime
 from engine_cli.domain import OperatingMode, ServerInstance
@@ -18,6 +22,8 @@ from engine_cli.interfaces.tui.layout.panel import Panel
 from engine_cli.interfaces.tui.main.user_inputs import UserInputs
 from engine_cli.interfaces.tui.modals import AddServerModalScreen, ConfirmModalScreen
 from engine_cli.interfaces.tui.theme.engine_dark import ENGINE_THEME
+
+logger = logging.getLogger(__name__)
 
 
 class EngineCli(App):
@@ -39,6 +45,7 @@ class EngineCli(App):
         self.app_paths = runtime.app_paths
         self.workspace_root = runtime.workspace_root
         self.settings = runtime.settings
+        self.session_coordinator = runtime.session_coordinator
         self.session_context = runtime.session_context
         self.profile_selection_service = runtime.profile_selection_service
         self.terminal_store = runtime.terminal_store
@@ -57,16 +64,24 @@ class EngineCli(App):
         with Container(classes="app-container"):
             with Horizontal(classes="app-top"):
                 with Vertical(classes="app-left"):
-                    yield Header(self.session_context)
-                    yield Body(self.session_context, self.terminal_store)
+                    yield Header(
+                        self.session_context,
+                        self.session_coordinator,
+                    )
+                    yield Body(
+                        self.session_context,
+                        self.terminal_store,
+                        self.session_coordinator,
+                    )
                 with Container(classes="app-right"):
                     yield Panel(
                         self.session_context,
                         self.server_manager,
                         self.server_runtime_state_resolver,
+                        self.session_coordinator,
                     )
             with Container(classes="app-bottom"):
-                yield Footer(self.session_context)
+                yield Footer(self.session_context, self.session_coordinator)
 
     def action_toggle_dark(self) -> None:
         """An action to toggle dark mode."""
@@ -89,25 +104,18 @@ class EngineCli(App):
 
     def _switch_mode(self, mode: OperatingMode) -> None:
         try:
-            self.session_context.switch_mode(mode)
+            self.session_coordinator.switch_mode(mode)
         except InvalidModeSwitchError:
             return
         self._sync_active_agent_profile()
-        self._refresh_mode_aware_widgets()
 
     def _sync_active_agent_profile(self) -> str:
         profile_id = self.profile_selection_service.resolve_effective_profile_id(
             session_context=self.session_context,
             settings=self.settings,
         )
-        self.session_context.set_agent_profile(profile_id)
+        self.session_coordinator.set_agent_profile(profile_id)
         return profile_id
-
-    def _refresh_mode_aware_widgets(self) -> None:
-        self.query_one(Header).refresh(recompose=True)
-        self.query_one(Body).refresh(recompose=True)
-        self.query_one(Panel).refresh(recompose=True)
-        self.query_one(Footer).refresh(recompose=True)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button clicks in panel views and modal launchers."""
@@ -149,8 +157,11 @@ class EngineCli(App):
             self.lifecycle_service.start(server)
             self._switch_mode(OperatingMode.SERVER)
             self.notify(f"Started {server.name}")
-        except Exception as exc:
+        except (ServerInstanceValidationError, ServerInstanceLifecycleError) as exc:
             self.notify(f"Failed to start server: {exc}", severity="error")
+        except Exception:
+            logger.exception("Unexpected server start failure")
+            raise
 
     def _handle_stop_server(self) -> None:
         """Stop the selected managed server."""
@@ -160,18 +171,19 @@ class EngineCli(App):
             return
         try:
             self.lifecycle_service.stop(server)
-            self._refresh_mode_aware_widgets()
+            self._refresh_panel()
             self.notify(f"Stopped {server.name}")
-        except Exception as exc:
+        except ServerInstanceLifecycleError as exc:
             self.notify(f"Failed to stop server: {exc}", severity="error")
+        except Exception:
+            logger.exception("Unexpected server stop failure")
+            raise
 
     def _handle_server_select(self, server_instance_id: str) -> None:
         """Select a managed server from the server catalog."""
         try:
-            self.server_manager.select_server(
-                server_instance_id,
-                self.session_context,
-            )
+            server = self.server_manager.require_server(server_instance_id)
+            self.session_coordinator.select_server(server.server_instance_id)
             self._switch_mode(OperatingMode.SERVER)
         except ServerInstanceNotFoundError:
             return
@@ -185,7 +197,7 @@ class EngineCli(App):
 
     def _handle_add_server_result(self, _result: object | None) -> None:
         """Refresh the shell after a server is added."""
-        self._refresh_mode_aware_widgets()
+        self._refresh_panel()
 
     def _open_remove_server_modal(self, server_instance_id: str) -> None:
         """Open a confirmation modal for server removal."""
@@ -213,14 +225,13 @@ class EngineCli(App):
         if confirmed is not True:
             return
         try:
-            self.server_manager.remove_server(
-                server_instance_id,
-                session_context=self.session_context,
-            )
+            self.server_manager.remove_server(server_instance_id)
         except ServerInstanceNotFoundError:
             return
+        if self.session_context.active_server_instance_id == server_instance_id:
+            self.session_coordinator.clear_server_selection()
         self._sync_active_agent_profile()
-        self._refresh_mode_aware_widgets()
+        self._refresh_panel()
 
     def _get_active_server(self) -> ServerInstance | None:
         """Return the selected server from the catalog, if any."""
@@ -231,6 +242,15 @@ class EngineCli(App):
         if server is None:
             return None
         return self.server_runtime_state_resolver.overlay(server)
+
+    def _refresh_panel(self) -> None:
+        """Refresh the panel for non-session changes when the shell is mounted."""
+        if not self.is_mounted:
+            return
+        try:
+            self.query_one(Panel).refresh(recompose=True)
+        except (NoMatches, ScreenStackError):
+            return
 
 
 def run(

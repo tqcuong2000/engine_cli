@@ -15,6 +15,21 @@ CREATE TABLE IF NOT EXISTS server_instances (
     attached_agents_json TEXT NOT NULL DEFAULT '[]'
 );
 
+CREATE TABLE IF NOT EXISTS agent_runtimes (
+    agent_runtime_id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    agent_profile_id TEXT NOT NULL,
+    server_instance_id TEXT NOT NULL,
+    agent_kind TEXT NOT NULL,
+    lifecycle_state TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_runtimes_server
+    ON agent_runtimes(server_instance_id);
+
+CREATE INDEX IF NOT EXISTS idx_agent_runtimes_profile
+    ON agent_runtimes(agent_profile_id);
+
 CREATE TABLE IF NOT EXISTS task_runs (
     task_run_id TEXT PRIMARY KEY,
     task_kind TEXT NOT NULL,

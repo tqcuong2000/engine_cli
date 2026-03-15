@@ -31,6 +31,7 @@ class AgentProfileSelectionService:
         settings: ResolvedSettings,
         agent_profile_id: str,
     ) -> str:
+        """Validate an explicit profile choice and return its id."""
         profile = settings.get_profile(agent_profile_id)
         if profile is None:
             raise UnknownAgentProfileError(
@@ -41,6 +42,4 @@ class AgentProfileSelectionService:
                 f"Agent profile '{agent_profile_id}' is not compatible with "
                 f"mode '{session_context.mode.value}'."
             )
-
-        session_context.set_agent_profile(agent_profile_id)
         return agent_profile_id

@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+from engine_cli.application.agent_runtimes import AgentRuntimeManager
 from engine_cli.application.lifecycle import (
+    AgentRuntimeLifecycleService,
     ServerInstanceLifecycleService,
     ServerRuntimeStateResolver,
 )
@@ -9,6 +11,7 @@ from engine_cli.application.server_commands import ServerCommandService
 from engine_cli.application.server_instances import ServerInstanceManager
 from engine_cli.application.session import (
     AgentProfileSelectionService,
+    SessionCoordinator,
     SessionContext,
 )
 from engine_cli.application.terminal import ServerTerminalStore
@@ -23,10 +26,13 @@ class AppRuntime:
     app_paths: AppPaths
     workspace_root: Path | None
     settings: ResolvedSettings
+    session_coordinator: SessionCoordinator
     session_context: SessionContext
     profile_selection_service: AgentProfileSelectionService
     terminal_store: ServerTerminalStore
     server_manager: ServerInstanceManager
     lifecycle_service: ServerInstanceLifecycleService
+    agent_runtime_manager: AgentRuntimeManager
+    agent_runtime_lifecycle_service: AgentRuntimeLifecycleService
     server_command_service: ServerCommandService
     server_runtime_state_resolver: ServerRuntimeStateResolver

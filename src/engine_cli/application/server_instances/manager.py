@@ -1,9 +1,12 @@
 from uuid import uuid4
 
+from engine_cli.application.agent_runtimes.errors import (
+    ServerInstanceHasAttachedRuntimesError,
+)
+from engine_cli.application.agent_runtimes.repository import AgentRuntimeRepository
 from engine_cli.application.server_instances.catalog import InMemoryServerCatalog
 from engine_cli.application.server_instances.errors import ServerInstanceNotFoundError
 from engine_cli.application.server_instances.repository import ServerInstanceRepository
-from engine_cli.application.session import SessionContext
 from engine_cli.domain import ServerInstance
 from engine_cli.infrastructure.minecraft.inspection import (
     MinecraftServerInspector,
@@ -17,9 +20,11 @@ class ServerInstanceManager:
     def __init__(
         self,
         catalog: ServerInstanceRepository | None = None,
+        runtime_catalog: AgentRuntimeRepository | None = None,
         inspector: MinecraftServerInspector | None = None,
     ) -> None:
         self.catalog = catalog or InMemoryServerCatalog()
+        self.runtime_catalog = runtime_catalog
         self.inspector = inspector or MinecraftServerInspector()
 
     def list_servers(self) -> list[ServerInstance]:
@@ -55,27 +60,33 @@ class ServerInstanceManager:
     def remove_server(
         self,
         server_instance_id: str,
-        session_context: SessionContext | None = None,
     ) -> ServerInstance:
-        """Remove a server and clear session focus if it was active."""
+        """Remove a server from the catalog."""
+        attached_runtimes = self._list_attached_runtime_ids(server_instance_id)
+        if attached_runtimes:
+            raise ServerInstanceHasAttachedRuntimesError(
+                server_instance_id,
+                attached_runtimes,
+            )
         server = self.catalog.remove_server(server_instance_id)
         if server is None:
             raise ServerInstanceNotFoundError(server_instance_id)
-        if (
-            session_context is not None
-            and session_context.active_server_instance_id == server_instance_id
-        ):
-            session_context.clear_server_selection()
         return server
 
-    def select_server(
-        self,
-        server_instance_id: str,
-        session_context: SessionContext,
-    ) -> ServerInstance:
-        """Select an existing server as the active session target."""
+    def require_server(self, server_instance_id: str) -> ServerInstance:
+        """Return an existing server or raise if the id is unknown."""
         server = self.get_server(server_instance_id)
         if server is None:
             raise ServerInstanceNotFoundError(server_instance_id)
-        session_context.select_server(server.server_instance_id)
         return server
+
+    def _list_attached_runtime_ids(self, server_instance_id: str) -> list[str]:
+        if self.runtime_catalog is None:
+            server = self.catalog.get_server(server_instance_id)
+            if server is None:
+                return []
+            return list(server.attached_agents)
+        return [
+            runtime.agent_runtime_id
+            for runtime in self.runtime_catalog.list_runtimes_for_server(server_instance_id)
+        ]

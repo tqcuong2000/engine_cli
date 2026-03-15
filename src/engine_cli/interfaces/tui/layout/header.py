@@ -3,13 +3,19 @@ from textual.containers import Horizontal
 from textual.widget import Widget
 from textual.widgets import Static
 
-from engine_cli.application import SessionContext
+from engine_cli.application import SessionContext, SessionCoordinator
+from engine_cli.interfaces.tui.session_aware import SessionAwareRecomposeMixin
 
 
-class Header(Widget):
-    def __init__(self, session_context: SessionContext) -> None:
-        super().__init__()
+class Header(SessionAwareRecomposeMixin, Widget):
+    def __init__(
+        self,
+        session_context: SessionContext,
+        session_coordinator: SessionCoordinator | None = None,
+    ) -> None:
         self.session_context = session_context
+        self.session_coordinator = session_coordinator
+        super().__init__()
 
     @property
     def badge_text(self) -> str:

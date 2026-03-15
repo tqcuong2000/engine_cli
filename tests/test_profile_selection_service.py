@@ -85,7 +85,7 @@ class TestAgentProfileSelectionService(unittest.TestCase):
 
         self.assertEqual(profile_id, "server-default")
 
-    def test_select_profile_updates_session_for_compatible_profile(self) -> None:
+    def test_select_profile_returns_profile_id_for_compatible_profile(self) -> None:
         session_context = SessionContext()
 
         selected_profile_id = self.service.select_profile(
@@ -95,7 +95,7 @@ class TestAgentProfileSelectionService(unittest.TestCase):
         )
 
         self.assertEqual(selected_profile_id, "base-alt")
-        self.assertEqual(session_context.active_agent_profile_id, "base-alt")
+        self.assertIsNone(session_context.active_agent_profile_id)
 
     def test_select_profile_rejects_unknown_profile(self) -> None:
         session_context = SessionContext()
