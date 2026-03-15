@@ -3,11 +3,13 @@ from pathlib import Path
 import unittest
 
 from engine_cli.application import (
+    InMemoryAgentRuntimeCatalog,
     ServerInstanceManager,
+    ServerInstanceHasAttachedRuntimesError,
     ServerInstanceNotFoundError,
     SessionContext,
 )
-from engine_cli.domain import OperatingMode
+from engine_cli.domain import AgentRuntime, AgentRuntimeLifecycleState, OperatingMode
 from engine_cli.infrastructure.persistence import SqliteServerInstanceRepository
 
 
@@ -89,3 +91,28 @@ class TestServerInstanceManager(unittest.TestCase):
             removed = manager.remove_server(server.server_instance_id)
             self.assertEqual(removed.server_instance_id, server.server_instance_id)
             self.assertEqual(manager.list_servers(), [])
+
+    def test_remove_server_rejects_when_runtime_repository_reports_attached_runtimes(self):
+        runtime_catalog = InMemoryAgentRuntimeCatalog()
+        manager = ServerInstanceManager(runtime_catalog=runtime_catalog)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            self._write_server_files(root)
+            server = manager.import_server(
+                name="Lobby",
+                location=str(root),
+                command="java -jar fabric.jar --nogui",
+            )
+            runtime_catalog.save_runtime(
+                AgentRuntime(
+                    agent_runtime_id="runtime-1",
+                    name="Ops Bot",
+                    agent_profile_id="profile-1",
+                    server_instance_id=server.server_instance_id,
+                    agent_kind="server_ops",
+                    lifecycle_state=AgentRuntimeLifecycleState.ATTACHED,
+                )
+            )
+
+            with self.assertRaises(ServerInstanceHasAttachedRuntimesError):
+                manager.remove_server(server.server_instance_id)

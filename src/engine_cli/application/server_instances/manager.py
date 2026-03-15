@@ -1,5 +1,9 @@
 from uuid import uuid4
 
+from engine_cli.application.agent_runtimes.errors import (
+    ServerInstanceHasAttachedRuntimesError,
+)
+from engine_cli.application.agent_runtimes.repository import AgentRuntimeRepository
 from engine_cli.application.server_instances.catalog import InMemoryServerCatalog
 from engine_cli.application.server_instances.errors import ServerInstanceNotFoundError
 from engine_cli.application.server_instances.repository import ServerInstanceRepository
@@ -17,9 +21,11 @@ class ServerInstanceManager:
     def __init__(
         self,
         catalog: ServerInstanceRepository | None = None,
+        runtime_catalog: AgentRuntimeRepository | None = None,
         inspector: MinecraftServerInspector | None = None,
     ) -> None:
         self.catalog = catalog or InMemoryServerCatalog()
+        self.runtime_catalog = runtime_catalog
         self.inspector = inspector or MinecraftServerInspector()
 
     def list_servers(self) -> list[ServerInstance]:
@@ -58,6 +64,12 @@ class ServerInstanceManager:
         session_context: SessionContext | None = None,
     ) -> ServerInstance:
         """Remove a server and clear session focus if it was active."""
+        attached_runtimes = self._list_attached_runtime_ids(server_instance_id)
+        if attached_runtimes:
+            raise ServerInstanceHasAttachedRuntimesError(
+                server_instance_id,
+                attached_runtimes,
+            )
         server = self.catalog.remove_server(server_instance_id)
         if server is None:
             raise ServerInstanceNotFoundError(server_instance_id)
@@ -79,3 +91,11 @@ class ServerInstanceManager:
             raise ServerInstanceNotFoundError(server_instance_id)
         session_context.select_server(server.server_instance_id)
         return server
+
+    def _list_attached_runtime_ids(self, server_instance_id: str) -> list[str]:
+        if self.runtime_catalog is None:
+            return []
+        return [
+            runtime.agent_runtime_id
+            for runtime in self.runtime_catalog.list_runtimes_for_server(server_instance_id)
+        ]

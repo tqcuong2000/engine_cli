@@ -1,6 +1,19 @@
+from engine_cli.application.agent_runtimes import (
+    AgentRuntimeAttachedServerNotFoundError,
+    AgentRuntimeAttachmentProjectionMismatchError,
+    AgentRuntimeManager,
+    AgentRuntimeManagerError,
+    AgentRuntimeNotFoundError,
+    AgentRuntimeRepository,
+    InMemoryAgentRuntimeCatalog,
+    InvalidAgentRuntimeProfileModeError,
+    ServerInstanceHasAttachedRuntimesError,
+)
 from engine_cli.application.execution import ExecutionResult, ExecutionService
 from engine_cli.application.lifecycle import (
+    AgentRuntimeLifecycleError,
     AgentRuntimeLifecycleService,
+    AgentRuntimeValidationError,
     ServerInstanceLifecycleError,
     ServerInstanceLifecycleService,
     ServerInstanceValidationError,
@@ -32,14 +45,25 @@ from engine_cli.application.terminal import (
 )
 
 __all__ = [
+    "AgentRuntimeAttachedServerNotFoundError",
+    "AgentRuntimeAttachmentProjectionMismatchError",
+    "AgentRuntimeLifecycleError",
+    "AgentRuntimeManager",
+    "AgentRuntimeManagerError",
     "AgentRuntimeLifecycleService",
+    "AgentRuntimeNotFoundError",
     "AgentProfileSelectionService",
+    "AgentRuntimeValidationError",
+    "AgentRuntimeRepository",
     "ExecutionResult",
     "ExecutionService",
+    "InMemoryAgentRuntimeCatalog",
     "InMemoryServerCatalog",
     "IncompatibleAgentProfileError",
+    "InvalidAgentRuntimeProfileModeError",
     "InvalidModeSwitchError",
     "ServerInstanceManager",
+    "ServerInstanceHasAttachedRuntimesError",
     "ServerInstanceManagerError",
     "ServerInstanceNotFoundError",
     "ServerInstanceRepository",

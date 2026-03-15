@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+from engine_cli.application.agent_runtimes import AgentRuntimeManager
 from engine_cli.application.lifecycle import (
+    AgentRuntimeLifecycleService,
     ServerInstanceLifecycleService,
     ServerRuntimeStateResolver,
 )
@@ -28,5 +30,7 @@ class AppRuntime:
     terminal_store: ServerTerminalStore
     server_manager: ServerInstanceManager
     lifecycle_service: ServerInstanceLifecycleService
+    agent_runtime_manager: AgentRuntimeManager
+    agent_runtime_lifecycle_service: AgentRuntimeLifecycleService
     server_command_service: ServerCommandService
     server_runtime_state_resolver: ServerRuntimeStateResolver

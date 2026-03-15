@@ -1,6 +1,8 @@
 from pathlib import Path
 
+from engine_cli.application.agent_runtimes import AgentRuntimeManager
 from engine_cli.application.lifecycle import (
+    AgentRuntimeLifecycleService,
     ServerInstanceLifecycleService,
     ServerRuntimeStateResolver,
 )
@@ -13,7 +15,12 @@ from engine_cli.application.session import (
 )
 from engine_cli.application.terminal import ServerTerminalStore
 from engine_cli.config import ConfigResolver
-from engine_cli.infrastructure.persistence import AppPaths, SqliteServerInstanceRepository
+from engine_cli.infrastructure.agent_runtime import InMemoryAgentRuntimeSupervisor
+from engine_cli.infrastructure.persistence import (
+    AppPaths,
+    SqliteAgentRuntimeRepository,
+    SqliteServerInstanceRepository,
+)
 from engine_cli.infrastructure.persistence.sqlite import SqliteTaskRunRepository
 
 from engine_cli.application.composition.runtime import AppRuntime
@@ -44,15 +51,29 @@ def create_app_runtime(
     )
 
     terminal_store = ServerTerminalStore()
+    task_repository = SqliteTaskRunRepository(app_paths.db_path)
     execution_service = ExecutionService(
-        task_repository=SqliteTaskRunRepository(app_paths.db_path)
+        task_repository=task_repository
     )
+    server_repository = SqliteServerInstanceRepository(app_paths.db_path)
+    agent_runtime_repository = SqliteAgentRuntimeRepository(app_paths.db_path)
     server_manager = ServerInstanceManager(
-        catalog=SqliteServerInstanceRepository(app_paths.db_path)
+        catalog=server_repository,
+        runtime_catalog=agent_runtime_repository,
     )
+    agent_runtime_manager = AgentRuntimeManager(
+        catalog=agent_runtime_repository,
+        server_catalog=server_repository,
+    )
+    agent_runtime_supervisor = InMemoryAgentRuntimeSupervisor()
     lifecycle_service = ServerInstanceLifecycleService(
         execution_service=execution_service,
         terminal_store=terminal_store,
+    )
+    agent_runtime_lifecycle_service = AgentRuntimeLifecycleService(
+        execution_service=execution_service,
+        runtime_catalog=agent_runtime_repository,
+        supervisor=agent_runtime_supervisor,
     )
     server_command_service = ServerCommandService(
         lifecycle_service=lifecycle_service,
@@ -69,6 +90,8 @@ def create_app_runtime(
         terminal_store=terminal_store,
         server_manager=server_manager,
         lifecycle_service=lifecycle_service,
+        agent_runtime_manager=agent_runtime_manager,
+        agent_runtime_lifecycle_service=agent_runtime_lifecycle_service,
         server_command_service=server_command_service,
         server_runtime_state_resolver=server_runtime_state_resolver,
     )
