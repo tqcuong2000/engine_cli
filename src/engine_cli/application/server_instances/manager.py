@@ -7,7 +7,6 @@ from engine_cli.application.agent_runtimes.repository import AgentRuntimeReposit
 from engine_cli.application.server_instances.catalog import InMemoryServerCatalog
 from engine_cli.application.server_instances.errors import ServerInstanceNotFoundError
 from engine_cli.application.server_instances.repository import ServerInstanceRepository
-from engine_cli.application.session import SessionContext
 from engine_cli.domain import ServerInstance
 from engine_cli.infrastructure.minecraft.inspection import (
     MinecraftServerInspector,
@@ -61,9 +60,8 @@ class ServerInstanceManager:
     def remove_server(
         self,
         server_instance_id: str,
-        session_context: SessionContext | None = None,
     ) -> ServerInstance:
-        """Remove a server and clear session focus if it was active."""
+        """Remove a server from the catalog."""
         attached_runtimes = self._list_attached_runtime_ids(server_instance_id)
         if attached_runtimes:
             raise ServerInstanceHasAttachedRuntimesError(
@@ -73,23 +71,13 @@ class ServerInstanceManager:
         server = self.catalog.remove_server(server_instance_id)
         if server is None:
             raise ServerInstanceNotFoundError(server_instance_id)
-        if (
-            session_context is not None
-            and session_context.active_server_instance_id == server_instance_id
-        ):
-            session_context.clear_server_selection()
         return server
 
-    def select_server(
-        self,
-        server_instance_id: str,
-        session_context: SessionContext,
-    ) -> ServerInstance:
-        """Select an existing server as the active session target."""
+    def require_server(self, server_instance_id: str) -> ServerInstance:
+        """Return an existing server or raise if the id is unknown."""
         server = self.get_server(server_instance_id)
         if server is None:
             raise ServerInstanceNotFoundError(server_instance_id)
-        session_context.select_server(server.server_instance_id)
         return server
 
     def _list_attached_runtime_ids(self, server_instance_id: str) -> list[str]:

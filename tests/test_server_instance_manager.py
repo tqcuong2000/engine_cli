@@ -7,9 +7,8 @@ from engine_cli.application import (
     ServerInstanceManager,
     ServerInstanceHasAttachedRuntimesError,
     ServerInstanceNotFoundError,
-    SessionContext,
 )
-from engine_cli.domain import AgentRuntime, AgentRuntimeLifecycleState, OperatingMode
+from engine_cli.domain import AgentRuntime, AgentRuntimeLifecycleState
 from engine_cli.infrastructure.persistence import SqliteServerInstanceRepository
 
 
@@ -43,9 +42,8 @@ class TestServerInstanceManager(unittest.TestCase):
             self.assertEqual(len(manager.list_servers()), 1)
             self.assertIs(manager.get_server(server.server_instance_id), server)
 
-    def test_remove_active_server_clears_session_and_falls_back_to_base(self):
+    def test_require_server_returns_existing_server(self):
         manager = ServerInstanceManager()
-        session = SessionContext()
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             self._write_server_files(root)
@@ -55,18 +53,15 @@ class TestServerInstanceManager(unittest.TestCase):
                 command="java -jar fabric.jar --nogui",
             )
 
-            session.select_server(server.server_instance_id)
-            session.switch_mode(OperatingMode.SERVER)
-            manager.remove_server(server.server_instance_id, session_context=session)
+            selected = manager.require_server(server.server_instance_id)
 
-            self.assertIsNone(session.active_server_instance_id)
-            self.assertEqual(session.mode, OperatingMode.BASE)
+            self.assertEqual(selected.server_instance_id, server.server_instance_id)
 
     def test_select_missing_server_raises(self):
         manager = ServerInstanceManager()
 
         with self.assertRaises(ServerInstanceNotFoundError):
-            manager.select_server("missing", SessionContext())
+            manager.require_server("missing")
 
     def test_manager_works_with_sqlite_repository_contract(self):
         with tempfile.TemporaryDirectory() as temp_dir:

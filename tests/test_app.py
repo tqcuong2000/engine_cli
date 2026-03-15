@@ -36,6 +36,7 @@ class TestApp(unittest.TestCase):
         self.assertEqual(app.title, "EngineCli")
         self.assertIsNotNone(app.terminal_store)
         self.assertIsNotNone(app.server_manager)
+        self.assertIs(app.session_coordinator.context, app.session_context)
         self.assertEqual(app.app_paths.db_path, self.app_root / "db" / "engine.db")
         self.assertEqual(app.session_context.active_agent_profile_id, "base-default")
 
@@ -105,7 +106,6 @@ class TestApp(unittest.TestCase):
 
     def test_base_mode_action_updates_session_context(self):
         app = self.create_app()
-        app._refresh_mode_aware_widgets = lambda: None
 
         app.action_set_base_mode()
 
@@ -114,7 +114,6 @@ class TestApp(unittest.TestCase):
 
     def test_server_mode_action_requires_selected_server(self):
         app = self.create_app()
-        app._refresh_mode_aware_widgets = lambda: None
 
         app.action_set_server_mode()
 
@@ -123,7 +122,6 @@ class TestApp(unittest.TestCase):
 
     def test_datapack_mode_action_requires_selected_server(self):
         app = self.create_app()
-        app._refresh_mode_aware_widgets = lambda: None
 
         app.action_set_datapack_mode()
 
@@ -132,7 +130,6 @@ class TestApp(unittest.TestCase):
 
     def test_server_mode_action_switches_with_real_selected_server(self):
         app = self.create_app()
-        app._refresh_mode_aware_widgets = lambda: None
         server = ServerInstance(
             server_instance_id="srv-1",
             name="Lobby",
@@ -152,7 +149,6 @@ class TestApp(unittest.TestCase):
 
     def test_base_mode_action_re_resolves_incompatible_profile(self):
         app = self.create_app()
-        app._refresh_mode_aware_widgets = lambda: None
         server = ServerInstance(
             server_instance_id="srv-1",
             name="Lobby",
@@ -173,7 +169,6 @@ class TestApp(unittest.TestCase):
 
     def test_server_selection_updates_session_context(self):
         app = self.create_app()
-        app._refresh_mode_aware_widgets = lambda: None
         server = ServerInstance(
             server_instance_id="srv-1",
             name="Lobby",
@@ -193,7 +188,6 @@ class TestApp(unittest.TestCase):
 
     def test_start_server_uses_repository_backed_instance(self):
         app = self.create_app()
-        app._refresh_mode_aware_widgets = lambda: None
         app.notify = lambda *args, **kwargs: None
         server = ServerInstance(
             server_instance_id="srv-1",
@@ -219,7 +213,6 @@ class TestApp(unittest.TestCase):
 
     def test_remove_active_server_re_resolves_profile_for_base_mode(self):
         app = self.create_app()
-        app._refresh_mode_aware_widgets = lambda: None
         server = ServerInstance(
             server_instance_id="srv-1",
             name="Lobby",
@@ -241,7 +234,6 @@ class TestApp(unittest.TestCase):
 
     def test_stop_server_uses_runtime_handle_backed_instance(self):
         app = self.create_app()
-        app._refresh_mode_aware_widgets = lambda: None
         app.notify = lambda *args, **kwargs: None
         server = ServerInstance(
             server_instance_id="srv-1",
@@ -270,7 +262,6 @@ class TestApp(unittest.TestCase):
 
     def test_start_server_validates_draft_server_before_start(self):
         app = self.create_app()
-        app._refresh_mode_aware_widgets = lambda: None
         app.notify = lambda *args, **kwargs: None
         server = ServerInstance(
             server_instance_id="srv-1",

@@ -19,6 +19,7 @@ class TestAppComposition(unittest.TestCase):
             runtime = create_app_runtime(app_root=app_root)
 
             self.assertEqual(runtime.app_paths.db_path, app_root / "db" / "engine.db")
+            self.assertIs(runtime.session_coordinator.context, runtime.session_context)
             self.assertEqual(runtime.session_context.active_agent_profile_id, "base-default")
             self.assertIsInstance(runtime.server_manager.catalog, SqliteServerInstanceRepository)
             self.assertIsInstance(

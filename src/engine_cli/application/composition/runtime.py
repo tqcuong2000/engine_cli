@@ -11,6 +11,7 @@ from engine_cli.application.server_commands import ServerCommandService
 from engine_cli.application.server_instances import ServerInstanceManager
 from engine_cli.application.session import (
     AgentProfileSelectionService,
+    SessionCoordinator,
     SessionContext,
 )
 from engine_cli.application.terminal import ServerTerminalStore
@@ -25,6 +26,7 @@ class AppRuntime:
     app_paths: AppPaths
     workspace_root: Path | None
     settings: ResolvedSettings
+    session_coordinator: SessionCoordinator
     session_context: SessionContext
     profile_selection_service: AgentProfileSelectionService
     terminal_store: ServerTerminalStore

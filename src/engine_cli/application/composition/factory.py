@@ -11,6 +11,7 @@ from engine_cli.application.server_commands import ServerCommandService
 from engine_cli.application.server_instances import ServerInstanceManager
 from engine_cli.application.session import (
     AgentProfileSelectionService,
+    SessionCoordinator,
     SessionContext,
 )
 from engine_cli.application.terminal import ServerTerminalStore
@@ -42,8 +43,9 @@ def create_app_runtime(
     )
 
     session_context = SessionContext()
+    session_coordinator = SessionCoordinator(session_context)
     profile_selection_service = AgentProfileSelectionService()
-    session_context.set_agent_profile(
+    session_coordinator.set_agent_profile(
         profile_selection_service.resolve_effective_profile_id(
             session_context=session_context,
             settings=settings,
@@ -85,6 +87,7 @@ def create_app_runtime(
         app_paths=app_paths,
         workspace_root=resolved_workspace_root,
         settings=settings,
+        session_coordinator=session_coordinator,
         session_context=session_context,
         profile_selection_service=profile_selection_service,
         terminal_store=terminal_store,

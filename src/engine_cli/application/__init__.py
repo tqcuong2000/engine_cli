@@ -22,8 +22,10 @@ from engine_cli.application.session import (
     AgentProfileSelectionService,
     IncompatibleAgentProfileError,
     InvalidModeSwitchError,
+    SessionCoordinator,
     SessionContext,
     SessionContextError,
+    SessionSnapshot,
     UnknownAgentProfileError,
 )
 from engine_cli.application.server_instances import (
@@ -74,8 +76,10 @@ __all__ = [
     "ServerInstanceValidationError",
     "ServerCommandError",
     "ServerCommandService",
+    "SessionCoordinator",
     "SessionContext",
     "SessionContextError",
+    "SessionSnapshot",
     "UnknownAgentProfileError",
     "TerminalLogLine",
     "parse_terminal_log_line",
