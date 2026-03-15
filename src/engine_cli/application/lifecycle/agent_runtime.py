@@ -68,7 +68,7 @@ class AgentRuntimeLifecycleService:
         runtime.lifecycle_state = AgentRuntimeLifecycleState.STARTING
         self.runtime_catalog.save_runtime(runtime)
 
-        def executor() -> None:
+        def _start_runtime_task() -> None:
             self.supervisor.activate(runtime, server)
             if not self.supervisor.is_active(runtime.agent_runtime_id):
                 self.supervisor.deactivate(runtime.agent_runtime_id)
@@ -80,7 +80,7 @@ class AgentRuntimeLifecycleService:
             task_kind="agent_runtime.start",
             target_type=TaskTargetType.AGENT_RUNTIME,
             target_id=runtime.agent_runtime_id,
-            executor=executor,
+            task_operation=_start_runtime_task,
         )
         if result.final_status is TaskStatus.COMPLETED:
             runtime.lifecycle_state = AgentRuntimeLifecycleState.ACTIVE
@@ -107,7 +107,7 @@ class AgentRuntimeLifecycleService:
         runtime.lifecycle_state = AgentRuntimeLifecycleState.STOPPING
         self.runtime_catalog.save_runtime(runtime)
 
-        def executor() -> None:
+        def _stop_runtime_task() -> None:
             removed_handle = self.supervisor.deactivate(runtime.agent_runtime_id)
             if removed_handle is None:
                 raise AgentRuntimeLifecycleError(
@@ -122,7 +122,7 @@ class AgentRuntimeLifecycleService:
             task_kind="agent_runtime.stop",
             target_type=TaskTargetType.AGENT_RUNTIME,
             target_id=runtime.agent_runtime_id,
-            executor=executor,
+            task_operation=_stop_runtime_task,
         )
         if result.final_status is TaskStatus.COMPLETED:
             runtime.lifecycle_state = AgentRuntimeLifecycleState.STOPPED

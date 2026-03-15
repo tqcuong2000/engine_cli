@@ -41,7 +41,7 @@ class TestExecutionService(unittest.TestCase):
             task_kind="server_instance.start",
             target_type=TaskTargetType.SERVER_INSTANCE,
             target_id="srv-1",
-            executor=assert_running_state_is_persisted,
+            task_operation=assert_running_state_is_persisted,
         )
 
         self.assertEqual(result.final_status, TaskStatus.COMPLETED)
@@ -67,7 +67,7 @@ class TestExecutionService(unittest.TestCase):
             task_kind="server_instance.start",
             target_type=TaskTargetType.SERVER_INSTANCE,
             target_id="srv-1",
-            executor=raise_failure,
+            task_operation=raise_failure,
         )
 
         self.assertEqual(result.final_status, TaskStatus.FAILED)
@@ -117,7 +117,7 @@ class TestExecutionService(unittest.TestCase):
             task_kind="server_instance.start",
             target_type=TaskTargetType.SERVER_INSTANCE,
             target_id="srv-1",
-            executor=lambda: None,
+            task_operation=lambda: None,
         )
 
         stored_task = service.get_task(result.task_run_id)

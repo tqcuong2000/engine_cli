@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Callable
+from collections.abc import Callable
 from uuid import uuid4
 
 from engine_cli.application.execution.catalog import InMemoryTaskRunCatalog
@@ -132,12 +132,12 @@ class ExecutionService:
     def execute_task(
         self,
         task: TaskRun | str,
-        executor: Callable[[], None],
+        task_operation: Callable[[], None],
     ) -> ExecutionResult:
         """Execute a task and mutate its status through terminal completion."""
         running_task = self.start_task(task)
         try:
-            executor()
+            task_operation()
         except Exception as exc:  # pragma: no cover - behavior verified by tests
             terminal_task = self.fail_task(
                 running_task,
@@ -156,10 +156,10 @@ class ExecutionService:
         task_kind: str,
         target_type: TaskTargetType,
         target_id: str,
-        executor: Callable[[], None],
+        task_operation: Callable[[], None],
     ) -> ExecutionResult:
         task = self.create_task(task_kind, target_type, target_id)
-        return self.execute_task(task, executor)
+        return self.execute_task(task, task_operation)
 
     def get_task(self, task_run_id: str) -> TaskRun | None:
         """Return one stored task if it exists."""

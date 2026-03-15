@@ -63,7 +63,7 @@ class ServerInstanceLifecycleService:
 
         server.lifecycle_state = ServerInstanceLifecycleState.STARTING
 
-        def executor() -> None:
+        def _start_server_task() -> None:
             terminal_buffer = self.terminal_store.get_buffer(server.server_instance_id)
             terminal_buffer.clear()
             handle = self.process_manager.start(server.command, server.location)
@@ -80,7 +80,7 @@ class ServerInstanceLifecycleService:
             task_kind="server_instance.start",
             target_type=TaskTargetType.SERVER_INSTANCE,
             target_id=server.server_instance_id,
-            executor=executor,
+            task_operation=_start_server_task,
         )
         if result.final_status is TaskStatus.COMPLETED:
             server.lifecycle_state = ServerInstanceLifecycleState.RUNNING
@@ -105,7 +105,7 @@ class ServerInstanceLifecycleService:
 
         server.lifecycle_state = ServerInstanceLifecycleState.STOPPING
 
-        def executor() -> None:
+        def _stop_server_task() -> None:
             self._shutdown_handle(handle)
             if not self._wait_for_state(handle, desired_running=False):
                 raise ServerInstanceLifecycleError(
@@ -117,7 +117,7 @@ class ServerInstanceLifecycleService:
             task_kind="server_instance.stop",
             target_type=TaskTargetType.SERVER_INSTANCE,
             target_id=server.server_instance_id,
-            executor=executor,
+            task_operation=_stop_server_task,
         )
         if result.final_status is TaskStatus.COMPLETED:
             server.lifecycle_state = ServerInstanceLifecycleState.STOPPED
