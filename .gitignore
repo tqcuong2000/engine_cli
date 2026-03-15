@@ -13,3 +13,4 @@ AGENTS.md
 CLAUDE.md
 .pytest_cache/
 .vscode/
+.agent/
