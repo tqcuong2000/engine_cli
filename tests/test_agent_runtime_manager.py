@@ -5,6 +5,7 @@ from engine_cli.application import (
     AgentRuntimeManager,
     InMemoryServerCatalog,
     InvalidAgentRuntimeProfileModeError,
+    LiveAgentRuntimeRemovalError,
 )
 from engine_cli.domain import (
     AgentProfile,
@@ -111,3 +112,19 @@ class TestAgentRuntimeManager(unittest.TestCase):
                 agent_profile=self.create_profile(),
                 server=server,
             )
+
+    def test_remove_runtime_rejects_live_runtime(self):
+        server_catalog = InMemoryServerCatalog()
+        server = self.create_server()
+        server_catalog.save_server(server)
+        manager = AgentRuntimeManager(server_catalog=server_catalog)
+        runtime = manager.create_runtime(
+            name="Ops Bot",
+            agent_profile=self.create_profile(),
+            server=server,
+        )
+        runtime.lifecycle_state = AgentRuntimeLifecycleState.ACTIVE
+        manager.catalog.save_runtime(runtime)
+
+        with self.assertRaises(LiveAgentRuntimeRemovalError):
+            manager.remove_runtime(runtime.agent_runtime_id)

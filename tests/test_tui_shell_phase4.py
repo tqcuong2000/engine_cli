@@ -130,3 +130,17 @@ class TestTuiShellPhase4(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             Footer(SessionContext(), coordinator)
+
+    def test_body_rejects_mismatched_coordinator_context(self):
+        coordinator = SessionCoordinator(SessionContext())
+
+        with self.assertRaises(ValueError):
+            Body(SessionContext(), ServerTerminalStore(), coordinator)
+
+    def test_body_compose_rejects_canonical_context_drift(self):
+        session = SessionContext()
+        body = Body(session, ServerTerminalStore())
+        body.session_context = SessionContext()
+
+        with self.assertRaises(ValueError):
+            list(body.compose())

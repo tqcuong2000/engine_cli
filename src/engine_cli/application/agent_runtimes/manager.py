@@ -5,6 +5,7 @@ from engine_cli.application.agent_runtimes.catalog import InMemoryAgentRuntimeCa
 from engine_cli.application.agent_runtimes.errors import (
     AgentRuntimeAttachedServerNotFoundError,
     AgentRuntimeAttachmentProjectionMismatchError,
+    LiveAgentRuntimeRemovalError,
     AgentRuntimeNotFoundError,
     InvalidAgentRuntimeProfileModeError,
 )
@@ -79,6 +80,7 @@ class AgentRuntimeManager:
         runtime = self.catalog.get_runtime(agent_runtime_id)
         if runtime is None:
             raise AgentRuntimeNotFoundError(agent_runtime_id)
+        self._ensure_runtime_removable(runtime)
 
         self._assert_server_projection_matches(runtime.server_instance_id)
         removed_runtime = self.catalog.remove_runtime(agent_runtime_id)
@@ -93,6 +95,17 @@ class AgentRuntimeManager:
             self.catalog.save_runtime(removed_runtime)
             raise
         return removed_runtime
+
+    def _ensure_runtime_removable(self, runtime: AgentRuntime) -> None:
+        if runtime.lifecycle_state in (
+            AgentRuntimeLifecycleState.STARTING,
+            AgentRuntimeLifecycleState.ACTIVE,
+            AgentRuntimeLifecycleState.STOPPING,
+        ):
+            raise LiveAgentRuntimeRemovalError(
+                runtime.agent_runtime_id,
+                runtime.lifecycle_state.value,
+            )
 
     def _validate_profile_mode(self, agent_profile: AgentProfile) -> None:
         if agent_profile.mode not in VALID_RUNTIME_PROFILE_MODES:

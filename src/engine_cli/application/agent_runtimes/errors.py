@@ -15,6 +15,20 @@ class AgentRuntimeNotFoundError(AgentRuntimeManagerError):
         super().__init__(message)
 
 
+class LiveAgentRuntimeRemovalError(AgentRuntimeManagerError):
+    """Raised when a managed runtime is removed while still live."""
+
+    def __init__(
+        self,
+        agent_runtime_id: str,
+        lifecycle_state: str,
+    ) -> None:
+        super().__init__(
+            f"Cannot remove live agent runtime '{agent_runtime_id}' while it is "
+            f"in state '{lifecycle_state}'."
+        )
+
+
 class InvalidAgentRuntimeProfileModeError(AgentRuntimeManagerError):
     """Raised when a profile mode cannot define a server-attached runtime."""
 

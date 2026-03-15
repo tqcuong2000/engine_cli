@@ -68,11 +68,14 @@ class AgentRuntimeLifecycleService:
 
         runtime.lifecycle_state = AgentRuntimeLifecycleState.STARTING
         self.runtime_catalog.save_runtime(runtime)
+        owned_handle: ManagedAgentRuntimeHandle | None = None
 
         def _start_runtime_task() -> None:
-            self.supervisor.activate(runtime, server)
+            nonlocal owned_handle
+            owned_handle = self.supervisor.activate(runtime, server)
             if not self.supervisor.is_active(runtime.agent_runtime_id):
-                self.supervisor.deactivate(runtime.agent_runtime_id)
+                if owned_handle is not None:
+                    self.supervisor.deactivate(runtime.agent_runtime_id)
                 raise AgentRuntimeLifecycleError(
                     "Agent runtime did not report an active supervisor handle."
                 )
@@ -85,14 +88,16 @@ class AgentRuntimeLifecycleService:
                 task_operation=_start_runtime_task,
             )
         except Exception:
-            self.supervisor.deactivate(runtime.agent_runtime_id)
+            if owned_handle is not None:
+                self.supervisor.deactivate(runtime.agent_runtime_id)
             runtime.lifecycle_state = AgentRuntimeLifecycleState.FAILED
             self.runtime_catalog.save_runtime(runtime)
             raise
         if result.final_status is TaskStatus.COMPLETED:
             runtime.lifecycle_state = AgentRuntimeLifecycleState.ACTIVE
         else:
-            self.supervisor.deactivate(runtime.agent_runtime_id)
+            if owned_handle is not None:
+                self.supervisor.deactivate(runtime.agent_runtime_id)
             runtime.lifecycle_state = AgentRuntimeLifecycleState.FAILED
         self.runtime_catalog.save_runtime(runtime)
         task = self.execution_service.get_task(result.task_run_id)
@@ -126,12 +131,21 @@ class AgentRuntimeLifecycleService:
                     "Agent runtime remained active after shutdown."
                 )
 
-        result = self.execution_service.run_task(
-            task_kind="agent_runtime.stop",
-            target_type=TaskTargetType.AGENT_RUNTIME,
-            target_id=runtime.agent_runtime_id,
-            task_operation=_stop_runtime_task,
-        )
+        try:
+            result = self.execution_service.run_task(
+                task_kind="agent_runtime.stop",
+                target_type=TaskTargetType.AGENT_RUNTIME,
+                target_id=runtime.agent_runtime_id,
+                task_operation=_stop_runtime_task,
+            )
+        except Exception:
+            runtime.lifecycle_state = (
+                AgentRuntimeLifecycleState.ACTIVE
+                if self.supervisor.is_active(runtime.agent_runtime_id)
+                else AgentRuntimeLifecycleState.FAILED
+            )
+            self.runtime_catalog.save_runtime(runtime)
+            raise
         if result.final_status is TaskStatus.COMPLETED:
             runtime.lifecycle_state = AgentRuntimeLifecycleState.STOPPED
         else:

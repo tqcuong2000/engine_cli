@@ -26,6 +26,11 @@ class FailingAgentRuntimeSupervisor(InMemoryAgentRuntimeSupervisor):
         raise RuntimeError("boom")
 
 
+class RaisingExecutionService(ExecutionService):
+    def run_task(self, *args, **kwargs):
+        raise RuntimeError("boom")
+
+
 class TestAgentRuntimeLifecycleService(unittest.TestCase):
     def setUp(self) -> None:
         self._temp_dir = tempfile.TemporaryDirectory()
@@ -237,6 +242,24 @@ class TestAgentRuntimeLifecycleService(unittest.TestCase):
             AgentRuntimeLifecycleState.FAILED,
         )
 
+    def test_start_does_not_clear_preexisting_handle_when_activate_raises(self):
+        runtime = self.create_runtime()
+        self.runtime_repository.save_runtime(runtime)
+        server = self.create_server()
+        self.supervisor.activate(runtime, server)
+
+        task = self.lifecycle_service.start(runtime, server)
+
+        self.assertEqual(task.status, TaskStatus.FAILED)
+        self.assertTrue(self.supervisor.is_active(runtime.agent_runtime_id))
+        persisted_runtime = self.runtime_repository.get_runtime(runtime.agent_runtime_id)
+        self.assertIsNotNone(persisted_runtime)
+        assert persisted_runtime is not None
+        self.assertEqual(
+            persisted_runtime.lifecycle_state,
+            AgentRuntimeLifecycleState.FAILED,
+        )
+
     def test_stop_rejects_without_handle(self):
         runtime = self.create_runtime(lifecycle_state=AgentRuntimeLifecycleState.ACTIVE)
         self.runtime_repository.save_runtime(runtime)
@@ -250,4 +273,26 @@ class TestAgentRuntimeLifecycleService(unittest.TestCase):
                 runtime.agent_runtime_id,
             ),
             [],
+        )
+
+    def test_stop_recovers_runtime_state_when_run_task_raises(self):
+        runtime = self.create_runtime()
+        self.runtime_repository.save_runtime(runtime)
+        server = self.create_server()
+        self.lifecycle_service.start(runtime, server)
+        lifecycle_service = AgentRuntimeLifecycleService(
+            execution_service=RaisingExecutionService(task_repository=self.task_repository),
+            runtime_catalog=self.runtime_repository,
+            supervisor=self.supervisor,
+        )
+
+        with self.assertRaises(RuntimeError):
+            lifecycle_service.stop(runtime)
+
+        persisted_runtime = self.runtime_repository.get_runtime(runtime.agent_runtime_id)
+        self.assertIsNotNone(persisted_runtime)
+        assert persisted_runtime is not None
+        self.assertEqual(
+            persisted_runtime.lifecycle_state,
+            AgentRuntimeLifecycleState.ACTIVE,
         )

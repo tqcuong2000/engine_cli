@@ -2,6 +2,7 @@ from engine_cli.application.agent_runtimes.catalog import InMemoryAgentRuntimeCa
 from engine_cli.application.agent_runtimes.errors import (
     AgentRuntimeAttachedServerNotFoundError,
     AgentRuntimeAttachmentProjectionMismatchError,
+    LiveAgentRuntimeRemovalError,
     AgentRuntimeManagerError,
     AgentRuntimeNotFoundError,
     InvalidAgentRuntimeProfileModeError,
@@ -13,6 +14,7 @@ from engine_cli.application.agent_runtimes.repository import AgentRuntimeReposit
 __all__ = [
     "AgentRuntimeAttachedServerNotFoundError",
     "AgentRuntimeAttachmentProjectionMismatchError",
+    "LiveAgentRuntimeRemovalError",
     "AgentRuntimeManager",
     "AgentRuntimeManagerError",
     "AgentRuntimeNotFoundError",
