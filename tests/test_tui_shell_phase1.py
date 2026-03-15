@@ -22,7 +22,7 @@ class TestTuiShellPhase1(unittest.TestCase):
             self.assertIsNone(app.session_context.active_server_instance_id)
             self.assertEqual(
                 app.session_context.active_agent_profile_id,
-                "default-profile",
+                "base-default",
             )
 
     def test_body_renders_conversation_in_base_mode(self):

@@ -53,3 +53,9 @@ class TestSessionContext(unittest.TestCase):
         context = SessionContext()
         context.set_agent_profile("profile-1")
         self.assertEqual(context.active_agent_profile_id, "profile-1")
+
+    def test_session_context_stores_only_profile_id(self):
+        context = SessionContext()
+        context.set_agent_profile("profile-1")
+
+        self.assertIsInstance(context.active_agent_profile_id, str)

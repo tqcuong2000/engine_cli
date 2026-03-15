@@ -5,6 +5,7 @@ from textual.containers import Container, Horizontal, Vertical
 from textual.widgets import Button
 
 from engine_cli.application import (
+    AgentProfileSelectionService,
     InvalidModeSwitchError,
     ServerCommandError,
     ServerCommandService,
@@ -55,7 +56,8 @@ class EngineCli(App):
             workspace_root=self.workspace_root,
         )
         self.session_context = SessionContext()
-        self.session_context.set_agent_profile(self.settings.default_agent_profile_id)
+        self.profile_selection_service = AgentProfileSelectionService()
+        self._sync_active_agent_profile()
         self.terminal_store = ServerTerminalStore()
         self.server_manager = ServerInstanceManager(
             catalog=SqliteServerInstanceRepository(self.app_paths.db_path)
@@ -94,8 +96,7 @@ class EngineCli(App):
         self.dark = not self.dark
 
     def action_set_base_mode(self) -> None:
-        self.session_context.switch_mode(OperatingMode.BASE)
-        self._refresh_mode_aware_widgets()
+        self._switch_mode(OperatingMode.BASE)
 
     def action_set_server_mode(self) -> None:
         self._switch_mode(OperatingMode.SERVER)
@@ -114,7 +115,16 @@ class EngineCli(App):
             self.session_context.switch_mode(mode)
         except InvalidModeSwitchError:
             return
+        self._sync_active_agent_profile()
         self._refresh_mode_aware_widgets()
+
+    def _sync_active_agent_profile(self) -> str:
+        profile_id = self.profile_selection_service.resolve_effective_profile_id(
+            session_context=self.session_context,
+            settings=self.settings,
+        )
+        self.session_context.set_agent_profile(profile_id)
+        return profile_id
 
     def _refresh_mode_aware_widgets(self) -> None:
         self.query_one(Header).refresh(recompose=True)
@@ -160,8 +170,7 @@ class EngineCli(App):
         try:
             self.lifecycle_service.validate(server)
             self.lifecycle_service.start(server)
-            self.session_context.switch_mode(OperatingMode.SERVER)
-            self._refresh_mode_aware_widgets()
+            self._switch_mode(OperatingMode.SERVER)
             self.notify(f"Started {server.name}")
         except Exception as exc:
             self.notify(f"Failed to start server: {exc}", severity="error")
@@ -186,10 +195,9 @@ class EngineCli(App):
                 server_instance_id,
                 self.session_context,
             )
-            self.session_context.switch_mode(OperatingMode.SERVER)
+            self._switch_mode(OperatingMode.SERVER)
         except ServerInstanceNotFoundError:
             return
-        self._refresh_mode_aware_widgets()
 
     def _open_add_server_modal(self) -> None:
         """Open the add-server modal and refresh after a successful import."""
@@ -234,6 +242,7 @@ class EngineCli(App):
             )
         except ServerInstanceNotFoundError:
             return
+        self._sync_active_agent_profile()
         self._refresh_mode_aware_widgets()
 
     def _get_active_server(self):

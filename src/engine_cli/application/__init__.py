@@ -6,9 +6,12 @@ from engine_cli.application.lifecycle import (
     ServerInstanceValidationError,
 )
 from engine_cli.application.session import (
+    AgentProfileSelectionService,
+    IncompatibleAgentProfileError,
     InvalidModeSwitchError,
     SessionContext,
     SessionContextError,
+    UnknownAgentProfileError,
 )
 from engine_cli.application.server_instances import (
     InMemoryServerCatalog,
@@ -30,9 +33,11 @@ from engine_cli.application.terminal import (
 
 __all__ = [
     "AgentRuntimeLifecycleService",
+    "AgentProfileSelectionService",
     "ExecutionResult",
     "ExecutionService",
     "InMemoryServerCatalog",
+    "IncompatibleAgentProfileError",
     "InvalidModeSwitchError",
     "ServerInstanceManager",
     "ServerInstanceManagerError",
@@ -47,6 +52,7 @@ __all__ = [
     "ServerCommandService",
     "SessionContext",
     "SessionContextError",
+    "UnknownAgentProfileError",
     "TerminalLogLine",
     "parse_terminal_log_line",
 ]

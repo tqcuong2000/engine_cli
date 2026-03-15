@@ -8,3 +8,7 @@ class JsonConfigError(ConfigError):
 
 class ConfigResolutionError(ConfigError):
     """Raised when resolved config values do not match the expected shape."""
+
+
+class ProfileConfigError(ConfigResolutionError):
+    """Raised when resolved agent profile config is invalid."""

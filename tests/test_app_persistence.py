@@ -39,5 +39,5 @@ class TestAppPersistence(unittest.TestCase):
             self.assertEqual(servers[0].name, "Lobby")
             self.assertEqual(
                 reloaded_app.session_context.active_agent_profile_id,
-                "default-profile",
+                "base-default",
             )
