@@ -98,3 +98,26 @@ class TestSqliteServerInstanceRepository(unittest.TestCase):
             repository = self.create_repository(Path(temp_dir) / "engine.db")
 
             self.assertIsNone(repository.remove_server("missing"))
+
+    def test_reconcile_transient_states_normalizes_runtime_values(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            database_path = Path(temp_dir) / "engine.db"
+            repository = self.create_repository(database_path)
+            repository.save_server(self.create_server())
+            with closing(sqlite3.connect(database_path)) as connection:
+                connection.execute(
+                    "UPDATE server_instances SET lifecycle_state = ? WHERE server_instance_id = ?",
+                    ("running", "srv-1"),
+                )
+                connection.commit()
+
+            updated_count = repository.reconcile_transient_states()
+            loaded_server = repository.get_server("srv-1")
+
+            self.assertEqual(updated_count, 1)
+            self.assertIsNotNone(loaded_server)
+            assert loaded_server is not None
+            self.assertEqual(
+                loaded_server.lifecycle_state,
+                ServerInstanceLifecycleState.STOPPED,
+            )

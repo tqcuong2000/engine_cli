@@ -5,6 +5,7 @@ import unittest
 from engine_cli.infrastructure.minecraft import (
     MinecraftServerInspector,
     ServerInspectionError,
+    ServerInspectionResult,
 )
 
 
@@ -59,7 +60,7 @@ class TestMinecraftServerInspector(unittest.TestCase):
             with self.assertRaises(ServerInspectionError):
                 MinecraftServerInspector().inspect(str(root))
 
-    def test_import_server_requires_explicit_command(self):
+    def test_inspect_returns_metadata_only(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             (root / "logs").mkdir()
@@ -74,11 +75,6 @@ class TestMinecraftServerInspector(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            server = MinecraftServerInspector().import_server(
-                server_instance_id="srv-1",
-                name="Lobby",
-                location=str(root),
-                command="java -Xmx2G -jar fabric.jar --nogui",
-            )
+            inspection = MinecraftServerInspector().inspect(str(root))
 
-            self.assertEqual(server.command, "java -Xmx2G -jar fabric.jar --nogui")
+            self.assertIsInstance(inspection, ServerInspectionResult)

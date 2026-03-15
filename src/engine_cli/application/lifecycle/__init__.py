@@ -5,6 +5,12 @@ from engine_cli.application.lifecycle.errors import (
     ServerInstanceLifecycleError,
     ServerInstanceValidationError,
 )
+from engine_cli.application.lifecycle.process_contract import (
+    NullProcessManager,
+    ProcessHandle,
+    ProcessLogController,
+    ProcessManager,
+)
 from engine_cli.application.lifecycle.server_instance import (
     ServerInstanceLifecycleService,
 )
@@ -16,6 +22,10 @@ __all__ = [
     "AgentRuntimeLifecycleError",
     "AgentRuntimeLifecycleService",
     "AgentRuntimeValidationError",
+    "NullProcessManager",
+    "ProcessHandle",
+    "ProcessLogController",
+    "ProcessManager",
     "ServerInstanceLifecycleError",
     "ServerInstanceLifecycleService",
     "ServerRuntimeStateResolver",

@@ -1,10 +1,17 @@
 import tempfile
+from contextlib import closing
 from pathlib import Path
+import sqlite3
 import unittest
 
 from engine_cli.infrastructure.agent_runtime import InMemoryAgentRuntimeSupervisor
 from engine_cli.application.composition import create_app_runtime
-from engine_cli.domain import AgentRuntime, AgentRuntimeLifecycleState
+from engine_cli.domain import (
+    AgentRuntime,
+    AgentRuntimeLifecycleState,
+    ServerInstance,
+    ServerInstanceLifecycleState,
+)
 from engine_cli.infrastructure.persistence import (
     SqliteAgentRuntimeRepository,
     SqliteServerInstanceRepository,
@@ -84,4 +91,36 @@ class TestAppComposition(unittest.TestCase):
             )
             self.assertIsNone(
                 runtime.agent_runtime_lifecycle_service.get_handle("runtime-1")
+            )
+
+    def test_create_app_runtime_reconciles_transient_server_state(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            app_root = Path(temp_dir)
+            server_repository = SqliteServerInstanceRepository(app_root / "db" / "engine.db")
+            server_repository.save_server(
+                ServerInstance(
+                    server_instance_id="srv-1",
+                    name="Lobby",
+                    location="X:/servers/lobby",
+                    command="java -jar fabric.jar --nogui",
+                    minecraft_version="1.21.11",
+                    server_distribution="fabric",
+                    lifecycle_state=ServerInstanceLifecycleState.CONFIGURED,
+                )
+            )
+            with closing(sqlite3.connect(app_root / "db" / "engine.db")) as connection:
+                connection.execute(
+                    "UPDATE server_instances SET lifecycle_state = ? WHERE server_instance_id = ?",
+                    ("running", "srv-1"),
+                )
+                connection.commit()
+
+            runtime = create_app_runtime(app_root=app_root)
+
+            persisted_server = runtime.server_manager.get_server("srv-1")
+            self.assertIsNotNone(persisted_server)
+            assert persisted_server is not None
+            self.assertEqual(
+                persisted_server.lifecycle_state,
+                ServerInstanceLifecycleState.STOPPED,
             )

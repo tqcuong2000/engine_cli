@@ -5,12 +5,15 @@ from engine_cli.application.agent_runtimes.errors import (
 )
 from engine_cli.application.agent_runtimes.repository import AgentRuntimeRepository
 from engine_cli.application.server_instances.catalog import InMemoryServerCatalog
-from engine_cli.application.server_instances.errors import ServerInstanceNotFoundError
+from engine_cli.application.server_instances.errors import (
+    ServerInspectionError,
+    ServerInstanceNotFoundError,
+)
+from engine_cli.application.server_instances.inspection import ServerInspectionResult
 from engine_cli.application.server_instances.repository import ServerInstanceRepository
-from engine_cli.domain import ServerInstance
+from engine_cli.domain import ServerInstance, ServerInstanceLifecycleState
 from engine_cli.infrastructure.minecraft.inspection import (
     MinecraftServerInspector,
-    ServerInspectionResult,
 )
 
 
@@ -37,7 +40,17 @@ class ServerInstanceManager:
 
     def inspect_server(self, location: str) -> ServerInspectionResult:
         """Inspect a candidate server location before import."""
-        return self.inspector.inspect(location)
+        try:
+            inspection = self.inspector.inspect(location)
+        except Exception as exc:
+            if exc.__class__.__name__ == "ServerInspectionError":
+                raise ServerInspectionError(str(exc)) from exc
+            raise
+        return ServerInspectionResult(
+            location=inspection.location,
+            minecraft_version=inspection.minecraft_version,
+            server_distribution=inspection.server_distribution,
+        )
 
     def suggest_start_command(self, location: str) -> str | None:
         """Return a default start command suggestion for a valid server root."""
@@ -45,11 +58,15 @@ class ServerInstanceManager:
 
     def import_server(self, name: str, location: str, command: str) -> ServerInstance:
         """Create and store a managed server from an inspected location."""
-        server = self.inspector.import_server(
+        inspection = self.inspect_server(location)
+        server = ServerInstance(
             server_instance_id=uuid4().hex,
             name=name,
-            location=location,
+            location=inspection.location,
             command=command,
+            minecraft_version=inspection.minecraft_version,
+            server_distribution=inspection.server_distribution,
+            lifecycle_state=ServerInstanceLifecycleState.DRAFT,
         )
         return self.catalog.save_server(server)
 

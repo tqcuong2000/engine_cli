@@ -1,8 +1,12 @@
 from pathlib import Path
 import shlex
+from collections.abc import Callable
 import subprocess
+from typing import cast
 
+from engine_cli.application.lifecycle import ProcessHandle
 from engine_cli.infrastructure.process.errors import ProcessCommandError
+from engine_cli.infrastructure.process.log_streamer import ProcessLogStreamer
 from engine_cli.infrastructure.process.managed_process import ManagedProcessHandle
 
 
@@ -22,36 +26,51 @@ class LocalProcessManager:
         )
         return ManagedProcessHandle(process=process, command=command)
 
-    def is_running(self, handle: ManagedProcessHandle) -> bool:
+    def is_running(self, handle: ProcessHandle) -> bool:
         """Check if the process is still running."""
-        return handle.process.poll() is None
+        managed_handle = cast(ManagedProcessHandle, handle)
+        return managed_handle.process.poll() is None
 
-    def stop(self, handle: ManagedProcessHandle, timeout: float = 2.0) -> None:
+    def stop(self, handle: ProcessHandle, timeout: float = 2.0) -> None:
         """Gracefully terminate the process, falling back to kill on timeout."""
-        if not self.is_running(handle):
-            self._close_streams(handle)
+        managed_handle = cast(ManagedProcessHandle, handle)
+        if not self.is_running(managed_handle):
+            self._close_streams(managed_handle)
             return
-        handle.process.terminate()
+        managed_handle.process.terminate()
         try:
-            handle.process.wait(timeout=timeout)
+            managed_handle.process.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
-            handle.process.kill()
-            handle.process.wait(timeout=timeout)
+            managed_handle.process.kill()
+            managed_handle.process.wait(timeout=timeout)
         finally:
-            self._close_streams(handle)
+            self._close_streams(managed_handle)
 
-    def send_command(self, handle: ManagedProcessHandle, command: str) -> None:
+    def send_command(self, handle: ProcessHandle, command: str) -> None:
         """Write one command to the managed process stdin and flush immediately."""
+        managed_handle = cast(ManagedProcessHandle, handle)
         normalized_command = command.strip()
         if not normalized_command:
             raise ProcessCommandError("Server command is required.")
-        stdin = handle.process.stdin
+        stdin = managed_handle.process.stdin
         if stdin is None or stdin.closed:
             raise ProcessCommandError("Managed process stdin is not available.")
-        if not self.is_running(handle):
+        if not self.is_running(managed_handle):
             raise ProcessCommandError("Managed process is not running.")
         stdin.write(f"{normalized_command}\n")
         stdin.flush()
+
+    def create_log_streamer(
+        self,
+        handle: ProcessHandle,
+        write_line: Callable[[str], object],
+    ) -> ProcessLogStreamer:
+        """Create one log streamer for the process stdout."""
+        managed_handle = cast(ManagedProcessHandle, handle)
+        stdout = managed_handle.process.stdout
+        if stdout is None:
+            raise ProcessCommandError("Managed process stdout is not available.")
+        return ProcessLogStreamer(stdout, write_line)
 
     def _close_streams(self, handle: ManagedProcessHandle) -> None:
         """Ensure all process standard streams are closed."""
