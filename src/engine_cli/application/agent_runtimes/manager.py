@@ -83,7 +83,10 @@ class AgentRuntimeManager:
         self._assert_server_projection_matches(runtime.server_instance_id)
         removed_runtime = self.catalog.remove_runtime(agent_runtime_id)
         if removed_runtime is None:
-            raise AgentRuntimeNotFoundError(agent_runtime_id)
+            raise AgentRuntimeNotFoundError(
+                agent_runtime_id,
+                detail="Removed concurrently.",
+            )
         try:
             self._write_server_projection(runtime.server_instance_id)
         except Exception:
@@ -99,6 +102,9 @@ class AgentRuntimeManager:
             )
 
     def _assert_server_projection_matches(self, server_instance_id: str) -> None:
+        # Runtime attachment projection assumes a single-writer CLI environment.
+        # Concurrent external writes may still invalidate this check before the
+        # subsequent projection update.
         if self.server_catalog is None:
             return
         server = self.server_catalog.get_server(server_instance_id)

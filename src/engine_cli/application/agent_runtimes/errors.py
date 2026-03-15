@@ -8,8 +8,11 @@ class AgentRuntimeManagerError(Exception):
 class AgentRuntimeNotFoundError(AgentRuntimeManagerError):
     """Raised when an agent runtime cannot be found in the catalog."""
 
-    def __init__(self, agent_runtime_id: str) -> None:
-        super().__init__(f"Unknown agent runtime '{agent_runtime_id}'.")
+    def __init__(self, agent_runtime_id: str, *, detail: str | None = None) -> None:
+        message = f"Unknown agent runtime '{agent_runtime_id}'."
+        if detail is not None:
+            message = f"{message} {detail}"
+        super().__init__(message)
 
 
 class InvalidAgentRuntimeProfileModeError(AgentRuntimeManagerError):

@@ -30,9 +30,9 @@ from engine_cli.domain import AgentRuntimeLifecycleState
 
 TRANSIENT_AGENT_RUNTIME_STATES = frozenset(
     {
-        "starting",
-        "active",
-        "stopping",
+        AgentRuntimeLifecycleState.STARTING,
+        AgentRuntimeLifecycleState.ACTIVE,
+        AgentRuntimeLifecycleState.STOPPING,
     }
 )
 
@@ -116,7 +116,7 @@ def _reconcile_persisted_agent_runtimes(
 ) -> None:
     """Normalize transient persisted runtime states into a safe recoverable state."""
     for runtime in agent_runtime_repository.list_runtimes():
-        if runtime.lifecycle_state.value not in TRANSIENT_AGENT_RUNTIME_STATES:
+        if runtime.lifecycle_state not in TRANSIENT_AGENT_RUNTIME_STATES:
             continue
         runtime.lifecycle_state = AgentRuntimeLifecycleState.STOPPED
         agent_runtime_repository.save_runtime(runtime)

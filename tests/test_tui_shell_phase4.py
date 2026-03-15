@@ -49,8 +49,8 @@ class TestTuiShellPhase4(unittest.TestCase):
             ["Context", "Servers", "Actions", "Tasks"],
         )
 
-        session.select_server("srv-1")
-        session.switch_mode(OperatingMode.SERVER)
+        coordinator.select_server("srv-1")
+        coordinator.switch_mode(OperatingMode.SERVER)
 
         self.assertEqual(header.badge_text, "SERVER")
         self.assertEqual(header.title_text, "Engine // srv-1")
@@ -124,3 +124,9 @@ class TestTuiShellPhase4(unittest.TestCase):
         coordinator.set_agent_profile("profile-1")
 
         self.assertEqual(refresh_calls, [])
+
+    def test_footer_rejects_mismatched_coordinator_context(self):
+        coordinator = SessionCoordinator(SessionContext())
+
+        with self.assertRaises(ValueError):
+            Footer(SessionContext(), coordinator)

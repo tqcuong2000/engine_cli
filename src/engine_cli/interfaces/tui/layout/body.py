@@ -16,10 +16,10 @@ class Body(SessionAwareRecomposeMixin, Container):
         terminal_store: ServerTerminalStore,
         session_coordinator: SessionCoordinator | None = None,
     ) -> None:
-        super().__init__()
         self.session_context = session_context
         self.terminal_store = terminal_store
         self.session_coordinator = session_coordinator
+        super().__init__()
 
     def compose(self) -> ComposeResult:
         if self.session_context.mode is OperatingMode.SERVER:

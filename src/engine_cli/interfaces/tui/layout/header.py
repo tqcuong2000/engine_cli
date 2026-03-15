@@ -13,9 +13,9 @@ class Header(SessionAwareRecomposeMixin, Widget):
         session_context: SessionContext,
         session_coordinator: SessionCoordinator | None = None,
     ) -> None:
-        super().__init__()
         self.session_context = session_context
         self.session_coordinator = session_coordinator
+        super().__init__()
 
     @property
     def badge_text(self) -> str:

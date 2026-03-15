@@ -111,6 +111,7 @@ class SqliteAgentRuntimeRepository(AgentRuntimeRepository):
     def remove_runtime(self, agent_runtime_id: str) -> AgentRuntime | None:
         """Remove and return one stored runtime if it exists."""
         with closing(self._connect()) as connection:
+            connection.execute("BEGIN IMMEDIATE")
             row = connection.execute(
                 """
                 SELECT
@@ -126,12 +127,17 @@ class SqliteAgentRuntimeRepository(AgentRuntimeRepository):
                 (agent_runtime_id,),
             ).fetchone()
             if row is None:
+                connection.rollback()
                 return None
-            connection.execute(
-                "DELETE FROM agent_runtimes WHERE agent_runtime_id = ?",
-                (agent_runtime_id,),
-            )
-            connection.commit()
+            try:
+                connection.execute(
+                    "DELETE FROM agent_runtimes WHERE agent_runtime_id = ?",
+                    (agent_runtime_id,),
+                )
+                connection.commit()
+            except Exception:
+                connection.rollback()
+                raise
         return self._row_to_runtime(row)
 
     def _connect(self) -> sqlite3.Connection:

@@ -77,12 +77,18 @@ class AgentRuntimeLifecycleService:
                     "Agent runtime did not report an active supervisor handle."
                 )
 
-        result = self.execution_service.run_task(
-            task_kind="agent_runtime.start",
-            target_type=TaskTargetType.AGENT_RUNTIME,
-            target_id=runtime.agent_runtime_id,
-            task_operation=_start_runtime_task,
-        )
+        try:
+            result = self.execution_service.run_task(
+                task_kind="agent_runtime.start",
+                target_type=TaskTargetType.AGENT_RUNTIME,
+                target_id=runtime.agent_runtime_id,
+                task_operation=_start_runtime_task,
+            )
+        except Exception:
+            self.supervisor.deactivate(runtime.agent_runtime_id)
+            runtime.lifecycle_state = AgentRuntimeLifecycleState.FAILED
+            self.runtime_catalog.save_runtime(runtime)
+            raise
         if result.final_status is TaskStatus.COMPLETED:
             runtime.lifecycle_state = AgentRuntimeLifecycleState.ACTIVE
         else:

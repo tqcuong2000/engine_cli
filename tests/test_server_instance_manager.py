@@ -87,6 +87,31 @@ class TestServerInstanceManager(unittest.TestCase):
             with self.assertRaises(ServerInstanceHasAttachedRuntimesError):
                 manager.remove_server(server.server_instance_id)
 
+    def test_remove_server_prefers_runtime_catalog_over_stale_server_projection(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            server_catalog = SqliteServerInstanceRepository(Path(temp_dir) / "engine.db")
+            runtime_catalog = InMemoryAgentRuntimeCatalog()
+            manager = ServerInstanceManager(
+                catalog=server_catalog,
+                runtime_catalog=runtime_catalog,
+            )
+            server = ServerInstance(
+                server_instance_id="srv-1",
+                name="Lobby",
+                location="X:/servers/lobby",
+                command="java -jar fabric.jar --nogui",
+                minecraft_version="1.21.11",
+                server_distribution="fabric",
+                lifecycle_state=ServerInstanceLifecycleState.CONFIGURED,
+                attached_agents=["stale-runtime"],
+            )
+            server_catalog.save_server(server)
+
+            removed_server = manager.remove_server(server.server_instance_id)
+
+            self.assertEqual(removed_server.server_instance_id, server.server_instance_id)
+            self.assertIsNone(server_catalog.get_server(server.server_instance_id))
+
     def test_manager_works_with_sqlite_repository_contract(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             repository = SqliteServerInstanceRepository(Path(temp_dir) / "engine.db")

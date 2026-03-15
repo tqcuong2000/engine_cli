@@ -1,4 +1,5 @@
 from pathlib import Path
+import logging
 
 from textual.app import App, ComposeResult, ScreenStackError
 from textual.containers import Container, Horizontal, Vertical
@@ -8,7 +9,9 @@ from textual.widgets import Button
 from engine_cli.application import (
     InvalidModeSwitchError,
     ServerCommandError,
+    ServerInstanceLifecycleError,
     ServerInstanceNotFoundError,
+    ServerInstanceValidationError,
 )
 from engine_cli.application.composition import AppRuntime, create_app_runtime
 from engine_cli.domain import OperatingMode, ServerInstance
@@ -19,6 +22,8 @@ from engine_cli.interfaces.tui.layout.panel import Panel
 from engine_cli.interfaces.tui.main.user_inputs import UserInputs
 from engine_cli.interfaces.tui.modals import AddServerModalScreen, ConfirmModalScreen
 from engine_cli.interfaces.tui.theme.engine_dark import ENGINE_THEME
+
+logger = logging.getLogger(__name__)
 
 
 class EngineCli(App):
@@ -152,8 +157,11 @@ class EngineCli(App):
             self.lifecycle_service.start(server)
             self._switch_mode(OperatingMode.SERVER)
             self.notify(f"Started {server.name}")
-        except Exception as exc:
+        except (ServerInstanceValidationError, ServerInstanceLifecycleError) as exc:
             self.notify(f"Failed to start server: {exc}", severity="error")
+        except Exception:
+            logger.exception("Unexpected server start failure")
+            raise
 
     def _handle_stop_server(self) -> None:
         """Stop the selected managed server."""
@@ -165,8 +173,11 @@ class EngineCli(App):
             self.lifecycle_service.stop(server)
             self._refresh_panel()
             self.notify(f"Stopped {server.name}")
-        except Exception as exc:
+        except ServerInstanceLifecycleError as exc:
             self.notify(f"Failed to stop server: {exc}", severity="error")
+        except Exception:
+            logger.exception("Unexpected server stop failure")
+            raise
 
     def _handle_server_select(self, server_instance_id: str) -> None:
         """Select a managed server from the server catalog."""
