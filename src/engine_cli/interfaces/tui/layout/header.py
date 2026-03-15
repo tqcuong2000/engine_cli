@@ -26,7 +26,7 @@ class Header(Widget):
     @property
     def context_text(self) -> str:
         """Return the trailing shell context summary."""
-        profile = self.session_context.active_agent_profile_id or "default-profile"
+        profile = self.session_context.active_agent_profile_id or "none"
         return f"profile: {profile}"
 
     def compose(self) -> ComposeResult:

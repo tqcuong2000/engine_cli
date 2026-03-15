@@ -73,7 +73,7 @@ class TestTuiShellPhase1(unittest.TestCase):
         header = Header(session)
         self.assertEqual(header.badge_text, "BASE")
         self.assertEqual(header.title_text, "Engine // No server selected")
-        self.assertEqual(header.context_text, "profile: default-profile")
+        self.assertEqual(header.context_text, "profile: none")
 
         session.select_server("srv-1")
         session.set_agent_profile("profile-1")
