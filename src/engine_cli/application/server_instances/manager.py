@@ -2,6 +2,7 @@ from uuid import uuid4
 
 from engine_cli.application.server_instances.catalog import InMemoryServerCatalog
 from engine_cli.application.server_instances.errors import ServerInstanceNotFoundError
+from engine_cli.application.server_instances.repository import ServerInstanceRepository
 from engine_cli.application.session import SessionContext
 from engine_cli.domain import ServerInstance
 from engine_cli.infrastructure.minecraft.inspection import (
@@ -15,7 +16,7 @@ class ServerInstanceManager:
 
     def __init__(
         self,
-        catalog: InMemoryServerCatalog | None = None,
+        catalog: ServerInstanceRepository | None = None,
         inspector: MinecraftServerInspector | None = None,
     ) -> None:
         self.catalog = catalog or InMemoryServerCatalog()

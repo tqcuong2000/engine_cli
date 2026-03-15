@@ -8,6 +8,7 @@ from engine_cli.application import (
     SessionContext,
 )
 from engine_cli.domain import OperatingMode
+from engine_cli.infrastructure.persistence import SqliteServerInstanceRepository
 
 
 class TestServerInstanceManager(unittest.TestCase):
@@ -64,3 +65,27 @@ class TestServerInstanceManager(unittest.TestCase):
 
         with self.assertRaises(ServerInstanceNotFoundError):
             manager.select_server("missing", SessionContext())
+
+    def test_manager_works_with_sqlite_repository_contract(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repository = SqliteServerInstanceRepository(Path(temp_dir) / "engine.db")
+            manager = ServerInstanceManager(catalog=repository)
+            root = Path(temp_dir) / "server"
+            root.mkdir()
+            self._write_server_files(root)
+
+            server = manager.import_server(
+                name="Lobby",
+                location=str(root),
+                command="java -jar fabric.jar --nogui",
+            )
+
+            loaded = manager.get_server(server.server_instance_id)
+
+            self.assertIsNotNone(loaded)
+            assert loaded is not None
+            self.assertEqual(loaded.name, "Lobby")
+            self.assertEqual(len(manager.list_servers()), 1)
+            removed = manager.remove_server(server.server_instance_id)
+            self.assertEqual(removed.server_instance_id, server.server_instance_id)
+            self.assertEqual(manager.list_servers(), [])

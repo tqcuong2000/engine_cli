@@ -1,3 +1,4 @@
+from typing import Any, cast
 import unittest
 
 from engine_cli.application import (
@@ -54,7 +55,7 @@ class TestServerCommandService(unittest.TestCase):
     def test_send_writes_to_process_manager_and_echoes_command(self):
         lifecycle = ServerInstanceLifecycleService()
         process_manager = _StubProcessManager()
-        lifecycle.process_manager = process_manager
+        cast(Any, lifecycle).process_manager = process_manager
         terminal_store = ServerTerminalStore()
         service = ServerCommandService(lifecycle, terminal_store)
         server = ServerInstance(

@@ -93,5 +93,13 @@ class ServersPanelView(Widget):
 
     def _is_running(self, server: object) -> bool:
         """Return whether a server is currently in the running state."""
+        server_instance_id = getattr(server, "server_instance_id", None)
+        if (
+            isinstance(server_instance_id, str)
+            and self.panel_context.lifecycle_service is not None
+            and self.panel_context.lifecycle_service.get_handle(server_instance_id)
+            is not None
+        ):
+            return True
         lifecycle_state = getattr(server, "lifecycle_state", None)
         return bool(lifecycle_state is not None and lifecycle_state.value == "running")

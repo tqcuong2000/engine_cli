@@ -15,6 +15,7 @@ from engine_cli.application.server_instances import (
     ServerInstanceManager,
     ServerInstanceManagerError,
     ServerInstanceNotFoundError,
+    ServerInstanceRepository,
 )
 from engine_cli.application.server_commands import (
     ServerCommandError,
@@ -36,6 +37,7 @@ __all__ = [
     "ServerInstanceManager",
     "ServerInstanceManagerError",
     "ServerInstanceNotFoundError",
+    "ServerInstanceRepository",
     "ServerTerminalBuffer",
     "ServerTerminalStore",
     "ServerInstanceLifecycleError",

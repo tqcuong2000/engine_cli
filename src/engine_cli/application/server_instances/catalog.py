@@ -5,7 +5,7 @@ from engine_cli.domain import ServerInstance
 
 @dataclass
 class InMemoryServerCatalog:
-    """Session-scoped in-memory storage for managed server instances."""
+    """In-memory implementation of the server-instance repository contract."""
 
     _servers: dict[str, ServerInstance] = field(default_factory=dict)
 

@@ -1,0 +1,10 @@
+{
+    "python-envs.pythonProjects": [
+        {
+            "path": "src",
+            "envManager": "ms-python.python:venv",
+            "packageManager": "ms-python.python:pip",
+            "python.analysis.extraPaths": ["X:\\engine_cli\\src"]
+        }
+    ]
+}

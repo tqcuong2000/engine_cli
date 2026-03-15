@@ -1,8 +1,10 @@
 import tempfile
 from pathlib import Path
+from typing import Any, cast
 import unittest
 
 from engine_cli.application import ServerInstanceManager, SessionContext
+from engine_cli.application.lifecycle import ServerInstanceLifecycleService
 from engine_cli.interfaces.tui.components import PanelTabDefinition, TabbedPanelFrame
 from engine_cli.interfaces.tui.modals import AddServerModalScreen, ConfirmModalScreen
 from engine_cli.interfaces.tui.panel.context import PanelViewContext
@@ -133,3 +135,39 @@ class TestTuiPrimitives(unittest.TestCase):
             self.assertEqual(len(entries), 1)
             self.assertEqual(entries[0]["server_instance_id"], server.server_instance_id)
             self.assertIn("Lobby", entries[0]["label"])
+
+    def test_servers_panel_view_marks_server_running_when_handle_exists(self):
+        manager = ServerInstanceManager()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "logs").mkdir()
+            (root / "versions" / "1.21.11").mkdir(parents=True)
+            (root / "server.properties").write_text("motd=Lobby\n", encoding="utf-8")
+            (root / "logs" / "latest.log").write_text(
+                "[22:37:58] [main/INFO]: Loading Minecraft 1.21.11 with Fabric Loader 0.18.4\n",
+                encoding="utf-8",
+            )
+            (root / "versions" / "1.21.11" / "server-1.21.11.jar").write_text(
+                "",
+                encoding="utf-8",
+            )
+            server = manager.import_server(
+                name="Lobby",
+                location=str(root),
+                command="java -jar fabric.jar --nogui",
+            )
+            lifecycle_service = ServerInstanceLifecycleService()
+            cast(Any, lifecycle_service).get_handle = lambda _server_id: object()
+            view = ServersPanelView(
+                PanelViewContext(
+                    session_context=SessionContext(
+                        active_server_instance_id=server.server_instance_id
+                    ),
+                    server_manager=manager,
+                    lifecycle_service=lifecycle_service,
+                )
+            )
+
+            entries = view.server_entries()
+
+            self.assertEqual(entries[0]["status_marker"], "o")

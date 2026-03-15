@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, Vertical
 from textual.widgets import Button
@@ -12,7 +14,8 @@ from engine_cli.application import (
     ServerTerminalStore,
     SessionContext,
 )
-from engine_cli.domain import OperatingMode
+from engine_cli.config import ConfigResolver, ResolvedSettings
+from engine_cli.domain import OperatingMode, ServerInstanceLifecycleState
 from engine_cli.interfaces.tui.layout.body import Body
 from engine_cli.interfaces.tui.layout.footer import Footer
 from engine_cli.interfaces.tui.layout.header import Header
@@ -20,6 +23,7 @@ from engine_cli.interfaces.tui.layout.panel import Panel
 from engine_cli.interfaces.tui.main.user_inputs import UserInputs
 from engine_cli.interfaces.tui.modals import AddServerModalScreen, ConfirmModalScreen
 from engine_cli.interfaces.tui.theme.engine_dark import ENGINE_THEME
+from engine_cli.infrastructure.persistence import AppPaths, SqliteServerInstanceRepository
 
 
 class EngineCli(App):
@@ -35,11 +39,27 @@ class EngineCli(App):
         ("]", "next_panel_tab", "Next panel"),
     ]
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        app_root: Path | None = None,
+        workspace_root: Path | None = None,
+    ) -> None:
         super().__init__()
+        self.app_paths = AppPaths.from_root(app_root)
+        self.workspace_root = (
+            workspace_root.expanduser().resolve() if workspace_root is not None else None
+        )
+        self.settings: ResolvedSettings = ConfigResolver().resolve(
+            global_config_dir=self.app_paths.config_dir,
+            workspace_root=self.workspace_root,
+        )
         self.session_context = SessionContext()
+        self.session_context.set_agent_profile(self.settings.default_agent_profile_id)
         self.terminal_store = ServerTerminalStore()
-        self.server_manager = ServerInstanceManager()
+        self.server_manager = ServerInstanceManager(
+            catalog=SqliteServerInstanceRepository(self.app_paths.db_path)
+        )
         self.lifecycle_service = ServerInstanceLifecycleService(
             terminal_store=self.terminal_store
         )
@@ -61,7 +81,11 @@ class EngineCli(App):
                     yield Header(self.session_context)
                     yield Body(self.session_context, self.terminal_store)
                 with Container(classes="app-right"):
-                    yield Panel(self.session_context, self.server_manager)
+                    yield Panel(
+                        self.session_context,
+                        self.server_manager,
+                        self.lifecycle_service,
+                    )
             with Container(classes="app-bottom"):
                 yield Footer(self.session_context)
 
@@ -217,11 +241,23 @@ class EngineCli(App):
         server_id = self.session_context.active_server_instance_id
         if server_id is None:
             return None
-        return self.server_manager.get_server(server_id)
+        server = self.server_manager.get_server(server_id)
+        if server is None:
+            return None
+        if self.lifecycle_service.get_handle(server_id) is not None:
+            server.lifecycle_state = ServerInstanceLifecycleState.RUNNING
+        return server
 
 
-def run():
-    app = EngineCli()
+def run(
+    *,
+    app_root: Path | None = None,
+    workspace_root: Path | None = None,
+) -> None:
+    app = EngineCli(
+        app_root=app_root,
+        workspace_root=workspace_root or Path.cwd(),
+    )
     app.run()
 
 

@@ -2,6 +2,7 @@ import io
 import sys
 import tempfile
 import time
+from typing import Any, cast
 import unittest
 
 from engine_cli.application import ServerTerminalBuffer
@@ -35,7 +36,7 @@ class TestProcessLogStreamer(unittest.TestCase):
             self.assertIsNone(handle.process.stderr)
             self.assertIsNotNone(handle.process.stdout)
 
-            streamer = ProcessLogStreamer(handle.process.stdout, terminal_buffer)
+            streamer = ProcessLogStreamer(cast(Any, handle.process.stdout), terminal_buffer)
             handle.log_streamer = streamer
             streamer.start()
 

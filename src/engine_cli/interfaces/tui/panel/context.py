@@ -1,6 +1,10 @@
 from dataclasses import dataclass
 
-from engine_cli.application import ServerInstanceManager, SessionContext
+from engine_cli.application import (
+    ServerInstanceLifecycleService,
+    ServerInstanceManager,
+    SessionContext,
+)
 
 
 @dataclass(frozen=True)
@@ -9,3 +13,4 @@ class PanelViewContext:
 
     session_context: SessionContext
     server_manager: ServerInstanceManager
+    lifecycle_service: ServerInstanceLifecycleService | None = None

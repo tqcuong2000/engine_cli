@@ -1,3 +1,5 @@
+import tempfile
+from pathlib import Path
 import unittest
 
 from engine_cli.application import ServerTerminalStore, SessionContext
@@ -14,9 +16,14 @@ from engine_cli.interfaces.tui.layout.header import Header
 
 class TestTuiShellPhase1(unittest.TestCase):
     def test_app_has_session_context_default(self):
-        app = EngineCli()
-        self.assertEqual(app.session_context.mode, OperatingMode.BASE)
-        self.assertIsNone(app.session_context.active_server_instance_id)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            app = EngineCli(app_root=Path(temp_dir))
+            self.assertEqual(app.session_context.mode, OperatingMode.BASE)
+            self.assertIsNone(app.session_context.active_server_instance_id)
+            self.assertEqual(
+                app.session_context.active_agent_profile_id,
+                "default-profile",
+            )
 
     def test_body_renders_conversation_in_base_mode(self):
         session = SessionContext()
